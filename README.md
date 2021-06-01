@@ -3,9 +3,11 @@
 ## 커뮤니티: IAMROOT 18차
 - [www.iamroot.org][#iamroot] | IAMROOT 홈페이지
 - [jake.dothome.co.kr][#moonc] | 문c 블로그
+- [https://band.us/@iamroot18][#band] | iamroot18 밴드
 
 [#iamroot]: http://www.iamroot.org
 [#moonc]: http://jake.dothome.co.kr
+[#band]: https://band.us/@iamroot18
 
 ## History
 
