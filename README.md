@@ -17,7 +17,6 @@
 [#moonc]: http://jake.dothome.co.kr
 [#band]: https://band.us/@iamroot18
 
-## History
 
 ### 0주차
 2021.05.22, Zoom 온라인(5x명 접속 / 총인원 9x명)
