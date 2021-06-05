@@ -3,7 +3,6 @@
 ## 커뮤니티: IAMROOT 18차
 - [www.iamroot.org][#iamroot] | IAMROOT 홈페이지
 - [jake.dothome.co.kr][#moonc] | 문c 블로그
-<<<<<<< HEAD
 
 [#iamroot]: http://www.iamroot.org
 [#moonc]: http://jake.dothome.co.kr
@@ -12,7 +11,6 @@
 
 - 첫 모임: 2015년 5월 22일 (총인원 약 90여명 - 약 50여명 zoom 접속)
 
-=======
 - [https://band.us/@iamroot18][#band] | iamroot18 밴드
 
 [#iamroot]: http://www.iamroot.org
@@ -21,17 +19,12 @@
 
 ## History
 
->>>>>>> 794d1fe9257785bba276f08bcd388f7977b523d2
 ### 0주차
 2021.05.22, Zoom 온라인(5x명 접속 / 총인원 9x명)
 - Orientation (3시간)
 
 ### 1주차
-<<<<<<< HEAD
-- 2021.05.29, Zoom 온라인(53명 참석)
-=======
 - 2021.05.29, Zoom 온라인(53명 참석).
->>>>>>> 794d1fe9257785bba276f08bcd388f7977b523d2
 - pm 03:00 ~ pm 10:00
 - 리눅스 커널 내부구조 (p10 ~ p54 중간)
 
