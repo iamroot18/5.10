@@ -92,6 +92,23 @@
 #define __memexitconst   __section(".memexit.rodata")
 
 /* For assembly routines */
+/*
+ * IAMROOT, 2021.07.10: .setion의 의미 : 컴파일시 코드가 특정섹션에 들어갈 수 있게 하는  지시어. 
+ */
+/* IAMROOT, 2021.07.10: 
+ * 1. .head.text 영역
+ * 2. ax 의미
+ * -> allocatable(runtime시에 메모리에 로드된다) & excutable(실행 할 수있다),
+ * 3. ax가 꼭필요한가?
+ *  -> 각자 숙제로 확인.
+ * 4. etc:
+ * - >
+ * merges the two sections named sectionX into one section with the flags "ax".
+ * https://developer.arm.com/documentation/100068/0608/migrating-from-armasm-to-the-armclang-integrated-assembler/sections
+ *  
+ * GNU assembler 로 찾아야하는지 ARM assembler에대한 specific인지확인해가면서 볼필요있음.
+ */
+
 #define __HEAD		.section	".head.text","ax"
 #define __INIT		.section	".init.text","ax"
 #define __FINIT		.previous

@@ -1,6 +1,7 @@
 #ifndef __ASM_LINKAGE_H
 #define __ASM_LINKAGE_H
 
+/* IAMROOT, 2021.07.10: align 다음값이 order를 의미 2^2 =4*/
 #define __ALIGN		.align 2
 #define __ALIGN_STR	".align 2"
 

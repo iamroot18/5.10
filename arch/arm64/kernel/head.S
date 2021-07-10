@@ -37,6 +37,11 @@
 #include "efi-header.S"
 
 /*
+ * IAMROOT, 2021.07.10: 
+ * - 해당 코드는 bootloader에 의한 최소한의 초기화 작업이후의 코드임을 알린다. 
+*/
+
+/*
  * IAMROOT, 2021.07.10: KERNEL_START --> 커널 시작 가상 주소(_text)
 	컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
 	-> 0xFFFF_****_****_**** 
@@ -48,6 +53,25 @@
 #if (PAGE_OFFSET & 0x1fffff) != 0
 #error PAGE_OFFSET must be at least 2MB aligned
 #endif
+
+
+/*
+ * IAMROOT, 2021.07.10: 
+ * FDT : Flattened Device Tree (Device Tree, DTB{Block})
+ * -> Device Tree?
+ * 커널이 동작하기 위한 디바이스의 물리주소가 기록되어 있음. 
+ * - 서버나 pc는 ACPI table이 있기때문에 필요가 없음
+ * - SoC 기반의(ARM, embeded) 제품들은 UEFI가 없기때문에 device tree가 필요함.
+ * - 최근에 UEFI BIOS를 가진 ARM server는 ACPI 와 DT를 둘다 사용가능하다.
+ * 아래 요구사항이 필요한 이유:
+ * 1. mmu를 키려고 하기때문에 켜있으면 안됌.
+ * 2. 기존에 mmu 없이 boot loader가 동작했기 때문에 꺼져 있는게 정상.
+ * (ARM 계열은 MMU가 꺼져 있으면 캐시를 킬수 없다. 따라서 MMU가 off면 D,I-cache is off.)
+ * reference
+ * - https://www.programmersought.com/article/20796227528/
+ * bootloader가 DRAM의 위치와 관계없이 relocatable한 code로 만들어주는 부분.  
+ * 아래 문맥의 callee : kernel caller: bootloader
+ */
 
 /*
  * Kernel startup entry point.
@@ -74,9 +98,13 @@ _head:
 	 * This add instruction has no meaningful effect except that
 	 * its opcode forms the magic "MZ" signature required by UEFI.
 	 */
+/* IAMROOT, 2021.07.10: add 는 커널입장에서는 의미없이
+ * 동작하는 코드지만, 외부에서 이커널을 볼때, UEFI를 지원
+ * 한다는 것읠 의미하는 MZ라는 MAGIC NUMBER를 확인 할 수 있다. */
 	add	x13, x18, #0x16
 	b	primary_entry
 #else
+/* IAMROOT, 2021.07.10: CONFIG_EFI=n로 동작하기 위해선 DT를 수동으로 작성 해줘야한다.*/
 	b	primary_entry			// branch to kernel start, magic
 	.long	0				// reserved
 #endif
