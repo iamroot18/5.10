@@ -36,6 +36,13 @@
 
 #include "efi-header.S"
 
+/*
+ * IAMROOT, 2021.07.10: KERNEL_START --> 커널 시작 가상 주소(_text)
+	컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
+	-> 0xFFFF_****_****_**** 
+	(실제 KASLR 옵션을 사용하는 경우 실제 커널 가상 주소는 런타임에 변경된다.)
+ */
+
 #define __PHYS_OFFSET	KERNEL_START
 
 #if (PAGE_OFFSET & 0x1fffff) != 0

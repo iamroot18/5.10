@@ -64,6 +64,11 @@
 
 #define _PAGE_END(va)		(-(UL(1) << ((va) - 1)))
 
+/*
+ * IAMROOT, 2021.07.10: arch/arm64/kernel/vmlinux.lds.S 파일에서 
+		        _text, _end 등이 정의되어 있다.
+ */
+
 #define KERNEL_START		_text
 #define KERNEL_END		_end
 
