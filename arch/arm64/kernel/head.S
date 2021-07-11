@@ -39,13 +39,14 @@
 /*
  * IAMROOT, 2021.07.10: 
  * - 해당 코드는 bootloader에 의한 최소한의 초기화 작업이후의 코드임을 알린다. 
-*/
+ */
 
 /*
- * IAMROOT, 2021.07.10: KERNEL_START --> 커널 시작 가상 주소(_text)
-	컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
-	-> 0xFFFF_****_****_**** 
-	(실제 KASLR 옵션을 사용하는 경우 실제 커널 가상 주소는 런타임에 변경된다.)
+ * IAMROOT, 2021.07.10:
+ * KERNEL_START --> 커널 시작 가상 주소(_text)
+ * 컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
+ * -> 0xFFFF_****_****_****
+ * (실제 KASLR 옵션을 사용하는 경우 실제 커널 가상 주소는 런타임에 변경된다.)
  */
 
 #define __PHYS_OFFSET	KERNEL_START
@@ -63,12 +64,22 @@
  * - 서버나 pc는 ACPI table이 있기때문에 필요가 없음
  * - SoC 기반의(ARM, embeded) 제품들은 UEFI가 없기때문에 device tree가 필요함.
  * - 최근에 UEFI BIOS를 가진 ARM server는 ACPI 와 DT를 둘다 사용가능하다.
+ *
  * 아래 요구사항이 필요한 이유:
  * 1. mmu를 키려고 하기때문에 켜있으면 안됌.
  * 2. 기존에 mmu 없이 boot loader가 동작했기 때문에 꺼져 있는게 정상.
  * (ARM 계열은 MMU가 꺼져 있으면 캐시를 킬수 없다. 따라서 MMU가 off면 D,I-cache is off.)
+ * - mmu = off 이유
+ *   Startup entry point에서 mmu가 on 이라면 CPU가 명령어를 수행할 때
+ *   메모리 주소값을 가상 주소로 해석하여 MMU가 물리 주소로 변환함.
+ *   매핑 테이블이 존재하지 않기 때문에 의도치 않은 작업들이 수행됨.
+ * - d-cache = off 이유
+ *   Startup 코드에서는 물리 주소에서 데이터를 직접 읽거나 써야하는데
+ *   d-cache가 on 되어 있다면 캐시 메모리로 접근을 시도하게 되어
+ *   의도치 않은 작업들이 수행됨.
  * reference
  * - https://www.programmersought.com/article/20796227528/
+ *
  * bootloader가 DRAM의 위치와 관계없이 relocatable한 code로 만들어주는 부분.  
  * 아래 문맥의 callee : kernel caller: bootloader
  */
@@ -100,7 +111,7 @@ _head:
 	 */
 /* IAMROOT, 2021.07.10: add 는 커널입장에서는 의미없이
  * 동작하는 코드지만, 외부에서 이커널을 볼때, UEFI를 지원
- * 한다는 것읠 의미하는 MZ라는 MAGIC NUMBER를 확인 할 수 있다. */
+ * 한다는 것을 의미하는 MZ라는 MAGIC NUMBER를 확인 할 수 있다. */
 	add	x13, x18, #0x16
 	b	primary_entry
 #else
