@@ -39,36 +39,32 @@
 /*
  * IAMROOT, 2021.07.10: 
  * - 해당 코드는 bootloader에 의한 최소한의 초기화 작업이후의 코드임을 알린다. 
+ * - KERNEL_START --> 커널 시작 가상 주소(_text)
+ * - 컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
+ *   -> 0xFFFF_****_****_****
+ *   -> KASLR 옵션을 사용하는 경우 실제 커널 가상 주소는 런타임에 변경된다.
  */
-
-/*
- * IAMROOT, 2021.07.10:
- * KERNEL_START --> 커널 시작 가상 주소(_text)
- * 컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
- * -> 0xFFFF_****_****_****
- * (실제 KASLR 옵션을 사용하는 경우 실제 커널 가상 주소는 런타임에 변경된다.)
- */
-
 #define __PHYS_OFFSET	KERNEL_START
 
 #if (PAGE_OFFSET & 0x1fffff) != 0
 #error PAGE_OFFSET must be at least 2MB aligned
 #endif
 
-
 /*
  * IAMROOT, 2021.07.10: 
- * FDT : Flattened Device Tree (Device Tree, DTB{Block})
- * -> Device Tree?
- * 커널이 동작하기 위한 디바이스의 물리주소가 기록되어 있음. 
- * - 서버나 pc는 ACPI table이 있기때문에 필요가 없음
- * - SoC 기반의(ARM, embeded) 제품들은 UEFI가 없기때문에 device tree가 필요함.
- * - 최근에 UEFI BIOS를 가진 ARM server는 ACPI 와 DT를 둘다 사용가능하다.
+ * - DTB(Device Tree Blob)
+ *   디바이스 트리가 컴파일되어 빅엔디언 형태의 바이너리이다.
+ *   FDT(Flattened Device Tree)라고도 불리운다.
+ *   커널이 동작하기 위한 디바이스의 물리주소가 기록되어 있음. 
+ *   서버나 pc는 ACPI table이 있기때문에 필요가 없음
+ *   SoC 기반의(ARM, embeded) 제품들은 UEFI가 없기때문에 device tree가 필요함.
+ *   최근에 UEFI BIOS를 가진 ARM server는 ACPI 와 DT를 둘다 사용가능하다.
  *
  * 아래 요구사항이 필요한 이유:
  * 1. mmu를 키려고 하기때문에 켜있으면 안됌.
  * 2. 기존에 mmu 없이 boot loader가 동작했기 때문에 꺼져 있는게 정상.
- * (ARM 계열은 MMU가 꺼져 있으면 캐시를 킬수 없다. 따라서 MMU가 off면 D,I-cache is off.)
+ *    (ARM 계열은 MMU가 꺼져 있으면 데이터 캐시를 킬수 없다. 
+ *    일부 SoC에서 MMU off 상태에서 명령 캐시는 on 가능하다고 함)
  * - mmu = off 이유
  *   Startup entry point에서 mmu가 on 이라면 CPU가 명령어를 수행할 때
  *   메모리 주소값을 가상 주소로 해석하여 MMU가 물리 주소로 변환함.
@@ -109,9 +105,13 @@ _head:
 	 * This add instruction has no meaningful effect except that
 	 * its opcode forms the magic "MZ" signature required by UEFI.
 	 */
-/* IAMROOT, 2021.07.10: add 는 커널입장에서는 의미없이
- * 동작하는 코드지만, 외부에서 이커널을 볼때, UEFI를 지원
- * 한다는 것을 의미하는 MZ라는 MAGIC NUMBER를 확인 할 수 있다. */
+
+/*
+ * IAMROOT, 2021.07.10: 
+ * - add 는 커널입장에서는 의미없이 동작하는 코드지만, 
+ *   외부에서 이커널을 볼때, UEFI를 지원한다는 것을 의미하는 
+ *   MZ라는 MAGIC NUMBER를 확인 할 수 있다. 
+ */
 	add	x13, x18, #0x16
 	b	primary_entry
 #else
