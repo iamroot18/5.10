@@ -108,6 +108,9 @@
  *  
  * - GNU assembler 로 찾아야하는지 ARM assembler에대한 specific인지
  *   확인해가면서 볼필요있음.
+ *
+ * - links:
+ *   1. https://sourceware.org/binutils/docs/as/Section.html
  */
 
 #define __HEAD		.section	".head.text","ax"
