@@ -301,23 +301,13 @@ alternative_endif
  * dcache_line_size - get the safe D-cache line size across all CPUs
  */
 /* IAMROOT, 2021.07.17:
- * 하나의 cache line 크기?
+ * - Cache Type Register에서 최소 데이터 캐시 라인을 바이트로 알아오기.
+ *   reg = 4 * 2^(CTR_EL0.DminLine)
+ *   예) reg = 4 * 2^4 = 64 bytes
  */
 	.macro	dcache_line_size, reg, tmp
-/* IAMROOT, 2021.07.17: Cache type 알아오기 */
 	read_ctr	\tmp
 	ubfm		\tmp, \tmp, #16, #19	// cache line size encoding
-/* IAMROOT, 2021.07.17:
- * tmp: x3
- * reg: x2
- * x2 = 4
- * x3 = 4
- * pre : 0b00000100
- * post: 0b01000000
- *
- * x2 = 0b01000000
- * x3 = 4
- */
 	mov		\reg, #4		// bytes per word
 	lsl		\reg, \reg, \tmp	// actual cache line size
 	.endm

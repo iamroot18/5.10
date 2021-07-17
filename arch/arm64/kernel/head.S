@@ -187,7 +187,7 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
  *
  * stp r0, r1, boot_args
  * > str r0, boot_args
- * > str r1, boot_args + 1 = boot_args[1];
+ * > str r1, boot_args + 8 = boot_args[1];
  */
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
 
@@ -209,11 +209,9 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
  *   수행시에 캐시와 메인 메모리간 데이터 싱크를 맞추기 위함.
  * - 캐시와의 관계성은? 
  *   x0 .. x3까지의 모든 데이터를 boot_args에 저장하고 난 뒤 확실하게
- *   정리하는 단계?..
- * - 숙제 TODO
+ *   정리하고, 그 이후에 데이터 캐시를 클린하도록 중간에 베리어 명령을 수행한다.
  */
 	dmb	sy				// needed before dc ivac with
-						// MMU off
 
 /*
  * IAMROOT, 2021.07.17: 
