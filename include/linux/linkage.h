@@ -147,6 +147,21 @@
 
 /* === generic annotations === */
 
+/*
+ * IAMROOT, 2021.07.17: 
+ * name : primary_entry 가정
+ * - 코드 구성
+ *
+ * .globl primary_entry; 
+ * .align 2; 
+ * primary_entry:
+ *
+ * .globl 의미
+ * - 해당 label을 외부에서 볼 수 있도록 하는 지시자.
+ *   소스 코드가 여러개로 분리되어 있다면 linker에서 해당 symbol을
+ *   찾을 수 있도록 사용하는 지시자.
+ */
+
 /* SYM_ENTRY -- use only if you have to for non-paired symbols */
 #ifndef SYM_ENTRY
 #define SYM_ENTRY(name, linkage, align...)		\

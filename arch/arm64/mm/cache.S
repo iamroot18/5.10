@@ -139,6 +139,22 @@ SYM_FUNC_END(__clean_dcache_area_pou)
  *	- size    - size in question
  */
 SYM_FUNC_START_LOCAL(__dma_inv_area)
+
+/*
+ * IAMROOT, 2021.07.17: 
+ *
+ * SYM_FUNC_START_ALIAS
+ * > .globl __inval_dcache_area
+ * > .align 2;
+ * > __inval_dcache_area:
+ * SYM_FUNC_START
+ * > .globl __inval_dcache_area
+ * > .align 2;
+ * > __inval_dcache_area:
+ * BTI_C
+ * - TODO 숙제
+ * > hint 34 ;
+ */
 SYM_FUNC_START_PI(__inval_dcache_area)
 	/* FALLTHROUGH */
 
@@ -147,6 +163,7 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  *	- start   - virtual start address of region
  *	- size    - size in question
  */
+/* IAMROOT, 2021.07.17: boot_args의 끝주소, 그 다음은?? */
 	add	x1, x1, x0
 	dcache_line_size x2, x3
 	sub	x3, x2, #1

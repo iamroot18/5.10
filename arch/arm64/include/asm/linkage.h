@@ -12,6 +12,9 @@
  * set the architecture version to v8.5 we use the hint instruction
  * instead.
  */
+/* IAMROOT, 2021.07.17: 
+ * hint: 
+ */
 #define BTI_C hint 34 ;
 
 /*
