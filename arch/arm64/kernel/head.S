@@ -218,6 +218,8 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
  * 0x20 : sizeof(boot_args)
  *        boot_args 배열의 전체 크기
  * x1: __inval_dcache_area의 size args로 넘어감.
+ * 최신 프로세서 상, stp와 __inval_dcache_area 중 어느 것이 더 먼저 수행될 지 보장하지 못함
+ * 그래서 dmb 를 선해앟여 2번의 stp 명령어의 수행 결과를 보장함
  */
 	mov	x1, #0x20			// 4 x 8 bytes
 	b	__inval_dcache_area		// tail call
