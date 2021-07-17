@@ -166,11 +166,39 @@ SYM_FUNC_START_PI(__inval_dcache_area)
 /* IAMROOT, 2021.07.17: boot_args의 끝주소, 그 다음은?? */
 	add	x1, x1, x0
 	dcache_line_size x2, x3
+
+/* IAMROOT, 2021.07.17: 
+ * End line aligned를 체크하기 위해서 수행하는 인스트럭션
+ * 인스트럭션 결과로 모든 Bit가 Set
+ */
 	sub	x3, x2, #1
+
+/* IAMROOT, 2021.07.17: 
+ * tst r0, r1 : r0와 r1을 AND 연산한 것처럼 
+ * -> CPSR 의 NZCV Flag가 결정 
+ * -> Z가 영향을 받음
+ */
 	tst	x1, x3				// end cache line aligned?
+
+/* IAMROOT, 2021.07.17: 
+ * bic r0, r1, r2 : r1 & ~r2 의 결과에서 1을 다 Clear한 후 r0에 저장
+ */
 	bic	x1, x1, x3
+
+/* IAMROOT, 2021.07.17: 
+ * b.eq : 위의 tst 명령어로 인해서 Z flag = 1 이라면 1f 실행 
+ * 1f: 밑의 Label 1을 의미
+ */	
 	b.eq	1f
+
+/* IAMROOT, 2021.07.17: 
+ * D : Data cache
+ * U : Unified cache
+ * dc : 통합 캐시까지 모두 Clear
+ * Invalidate : Cache line의 V Status를 Clear
+ */
 	dc	civac, x1			// clean & invalidate D / U line
+
 1:	tst	x0, x3				// start cache line aligned?
 	bic	x0, x0, x3
 	b.eq	2f
