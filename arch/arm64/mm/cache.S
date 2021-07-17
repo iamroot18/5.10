@@ -143,17 +143,20 @@ SYM_FUNC_START_LOCAL(__dma_inv_area)
 /*
  * IAMROOT, 2021.07.17: 
  *
- * SYM_FUNC_START_ALIAS
- * > .globl __inval_dcache_area
- * > .align 2;
- * > __inval_dcache_area:
- * SYM_FUNC_START
- * > .globl __inval_dcache_area
- * > .align 2;
- * > __inval_dcache_area:
- * BTI_C
- * - TODO 숙제
- * > hint 34 ;
+ * - SYM_FUNC_START_PI(x) 해석:
+ *   - SYM_FUNC_START_ALIAS(__pi_##x): 하나의 FUNC에 1개 이상의 이름을
+ *                                     부여하고 싶을때 사용하는 매크로
+ *          .globl __pi___inval_dcache_area
+ *          .align 2;
+ *          __pi___inval_dcache_area:
+ *
+ *   - SYM_FUNC_START()
+ *          .globl __inval_dcache_area
+ *          .align 2;
+ *          __inval_dcache_area:
+ *
+ *   - BTI_C
+ *          hint 34;
  */
 SYM_FUNC_START_PI(__inval_dcache_area)
 	/* FALLTHROUGH */
@@ -163,7 +166,6 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  *	- start   - virtual start address of region
  *	- size    - size in question
  */
-/* IAMROOT, 2021.07.17: boot_args의 끝주소, 그 다음은?? */
 	add	x1, x1, x0
 	dcache_line_size x2, x3
 
@@ -195,6 +197,7 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  * D : Data cache
  * U : Unified cache
  * dc : 통합 캐시까지 모두 Clear
+ * Clean : Cache line의 내용을 모두 main memory에 업데이트
  * Invalidate : Cache line의 V Status를 Clear
  */
 	dc	civac, x1			// clean & invalidate D / U line

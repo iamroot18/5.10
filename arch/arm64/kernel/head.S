@@ -148,6 +148,19 @@ pe_header:
 	 *  x19/x20    __primary_switch()                       callee preserved temp registers
 	 *  x24        __primary_switch() .. relocate_kernel()  current RELR displacement
 	 */
+/*
+ * IAMROOT, 2021.07.17:
+ *
+ * - SYM_CODE_START() 해석:
+ *      .globl primary_entry;
+ *      .align 2;
+ *      primary_entry:
+ *
+ * - .globl 의미
+ *   해당 label을 외부에서 볼 수 있도록 하는 지시자.
+ *   소스 코드가 여러개로 분리되어 있다면 linker에서 해당 symbol을
+ *   찾을 수 있도록 사용하는 지시자.
+ */
 SYM_CODE_START(primary_entry)
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
@@ -172,9 +185,9 @@ SYM_CODE_END(primary_entry)
 /*
  * IAMROOT, 2021.07.17: 
  *
- * code 해석시
- * .align 2;
- * preserve_boot_args:
+ * - SYM_CODE_START_LOCAL() 해석
+ *      .align 2;
+ *      preserve_boot_args:
  */
 SYM_CODE_START_LOCAL(preserve_boot_args)
 	mov	x21, x0				// x21=FDT
@@ -185,17 +198,16 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 /*
  * IAMROOT, 2021.07.17: 
  *
- * stp r0, r1, boot_args
- * > str r0, boot_args
- * > str r1, boot_args + 8 = boot_args[1];
+ * str x21, boot_args
+ * str x1, boot_args + 8 = boot_args[1];
  */
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
 
 /*
  * IAMROOT, 2021.07.17: 
  * 
- * > str r2, boot_args[2];
- * > str r3, boot_args[3];
+ * str x2, boot_args[2];
+ * str x3, boot_args[3];
  */
 	stp	x2, x3, [x0, #16]
 
@@ -205,8 +217,10 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
  * dmb: Data Memory Barrier
  * sy : Any - Any : ALL (시스템에 있는 모든 코어)
  * 
- * - Read/Write 시에 캐시에 임시로 저장을 해두었다가 Barrier insts
- *   수행시에 캐시와 메인 메모리간 데이터 싱크를 맞추기 위함.
+ * - Modern SMP arch에서 발생할 수 있는 문제
+ *   stp와 __inval_dcache_area 중 어느 것이 더 먼저 수행될 지 보장하지 못함.
+ *   __inval_dcahce_area가 먼저 수행되는것을 방지하고 stp 명령어의 수행 결과를
+ *   보장하기 위해 memory barrier 명령어를 이용한다.
  * - 캐시와의 관계성은? 
  *   x0 .. x3까지의 모든 데이터를 boot_args에 저장하고 난 뒤 확실하게
  *   정리하고, 그 이후에 데이터 캐시를 클린하도록 중간에 베리어 명령을 수행한다.
@@ -215,11 +229,8 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 
 /*
  * IAMROOT, 2021.07.17: 
- * 0x20 : sizeof(boot_args)
- *        boot_args 배열의 전체 크기
+ * 0x20: boot_args 배열의 전체 크기, sizeof(boot_args)
  * x1: __inval_dcache_area의 size args로 넘어감.
- * 최신 프로세서 상, stp와 __inval_dcache_area 중 어느 것이 더 먼저 수행될 지 보장하지 못함
- * 그래서 dmb 를 선해앟여 2번의 stp 명령어의 수행 결과를 보장함
  */
 	mov	x1, #0x20			// 4 x 8 bytes
 	b	__inval_dcache_area		// tail call
