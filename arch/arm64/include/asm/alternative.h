@@ -147,6 +147,10 @@ static inline void apply_alternatives_module(void *start, size_t length) { }
 /*
  * Begin an alternative code sequence.
  */
+/* IAMROOT, 2021.07.17:
+ * cap: ARM64_MISMATCHED_CACHE_TYPE     31
+ * TODO 숙제
+ */
 .macro alternative_if_not cap
 	.set .Lasm_alt_mode, 0
 	.pushsection .altinstructions, "a"

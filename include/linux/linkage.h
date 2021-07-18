@@ -67,7 +67,7 @@
 # define asmlinkage_protect(n, ret, args...)	do { } while (0)
 #endif
 #endif
-
+/* IAMROOT, 2021.07.10: ARM에서와 다르게 .align 이 byte로 되어있음 4 = 4byte */
 #ifndef __ALIGN
 #define __ALIGN		.align 4,0x90
 #define __ALIGN_STR	".align 4,0x90"

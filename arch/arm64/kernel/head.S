@@ -36,11 +36,49 @@
 
 #include "efi-header.S"
 
+/*
+ * IAMROOT, 2021.07.10: 
+ * - 해당 코드는 bootloader에 의한 최소한의 초기화 작업이후의 코드임을 알린다. 
+ * - KERNEL_START --> 커널 시작 가상 주소(_text)
+ * - 컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
+ *   -> 0xFFFF_****_****_****
+ *   -> KASLR 옵션을 사용하는 경우 실제 커널 가상 주소는 런타임에 변경된다.
+ */
 #define __PHYS_OFFSET	KERNEL_START
 
 #if (PAGE_OFFSET & 0x1fffff) != 0
 #error PAGE_OFFSET must be at least 2MB aligned
 #endif
+
+/*
+ * IAMROOT, 2021.07.10: 
+ * - DTB(Device Tree Blob)
+ *   디바이스 트리가 컴파일되어 빅엔디언 형태의 바이너리이다.
+ *   FDT(Flattened Device Tree)라고도 불리운다.
+ *   커널이 동작하기 위한 디바이스의 물리주소가 기록되어 있음. 
+ *   서버나 pc는 ACPI table이 있기때문에 필요가 없음
+ *   SoC 기반의(ARM, embeded) 제품들은 UEFI가 없기때문에 device tree가 필요함.
+ *   최근에 UEFI BIOS를 가진 ARM server는 ACPI 와 DT를 둘다 사용가능하다.
+ *
+ * 아래 요구사항이 필요한 이유:
+ * 1. mmu를 키려고 하기때문에 켜있으면 안됌.
+ * 2. 기존에 mmu 없이 boot loader가 동작했기 때문에 꺼져 있는게 정상.
+ *    (ARM 계열은 MMU가 꺼져 있으면 데이터 캐시를 킬수 없다. 
+ *    일부 SoC에서 MMU off 상태에서 명령 캐시는 on 가능하다고 함)
+ * - mmu = off 이유
+ *   Startup entry point에서 mmu가 on 이라면 CPU가 명령어를 수행할 때
+ *   메모리 주소값을 가상 주소로 해석하여 MMU가 물리 주소로 변환함.
+ *   매핑 테이블이 존재하지 않기 때문에 의도치 않은 작업들이 수행됨.
+ * - d-cache = off 이유
+ *   Startup 코드에서는 물리 주소에서 데이터를 직접 읽거나 써야하는데
+ *   d-cache가 on 되어 있다면 캐시 메모리로 접근을 시도하게 되어
+ *   의도치 않은 작업들이 수행됨.
+ * reference
+ * - https://www.programmersought.com/article/20796227528/
+ *
+ * bootloader가 DRAM의 위치와 관계없이 relocatable한 code로 만들어주는 부분.  
+ * 아래 문맥의 callee : kernel caller: bootloader
+ */
 
 /*
  * Kernel startup entry point.
@@ -67,9 +105,17 @@ _head:
 	 * This add instruction has no meaningful effect except that
 	 * its opcode forms the magic "MZ" signature required by UEFI.
 	 */
+
+/*
+ * IAMROOT, 2021.07.10: 
+ * - add 는 커널입장에서는 의미없이 동작하는 코드지만, 
+ *   외부에서 이커널을 볼때, UEFI를 지원한다는 것을 의미하는 
+ *   MZ라는 MAGIC NUMBER를 확인 할 수 있다. 
+ */
 	add	x13, x18, #0x16
 	b	primary_entry
 #else
+/* IAMROOT, 2021.07.10: CONFIG_EFI=n로 동작하기 위해선 DT를 수동으로 작성 해줘야한다.*/
 	b	primary_entry			// branch to kernel start, magic
 	.long	0				// reserved
 #endif
@@ -102,6 +148,19 @@ pe_header:
 	 *  x19/x20    __primary_switch()                       callee preserved temp registers
 	 *  x24        __primary_switch() .. relocate_kernel()  current RELR displacement
 	 */
+/*
+ * IAMROOT, 2021.07.17:
+ *
+ * - SYM_CODE_START() 해석:
+ *      .globl primary_entry;
+ *      .align 2;
+ *      primary_entry:
+ *
+ * - .globl 의미
+ *   해당 label을 외부에서 볼 수 있도록 하는 지시자.
+ *   소스 코드가 여러개로 분리되어 있다면 linker에서 해당 symbol을
+ *   찾을 수 있도록 사용하는 지시자.
+ */
 SYM_CODE_START(primary_entry)
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
@@ -122,16 +181,58 @@ SYM_CODE_END(primary_entry)
 /*
  * Preserve the arguments passed by the bootloader in x0 .. x3
  */
+
+/*
+ * IAMROOT, 2021.07.17: 
+ *
+ * - SYM_CODE_START_LOCAL() 해석
+ *      .align 2;
+ *      preserve_boot_args:
+ */
 SYM_CODE_START_LOCAL(preserve_boot_args)
 	mov	x21, x0				// x21=FDT
 
+/* IAMROOT, 2021.07.17: x0 = &boot_args[0] */
 	adr_l	x0, boot_args			// record the contents of
+
+/*
+ * IAMROOT, 2021.07.17: 
+ *
+ * str x21, boot_args
+ * str x1, boot_args + 8 = boot_args[1];
+ */
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
+
+/*
+ * IAMROOT, 2021.07.17: 
+ * 
+ * str x2, boot_args[2];
+ * str x3, boot_args[3];
+ */
 	stp	x2, x3, [x0, #16]
 
+/*
+ * IAMROOT, 2021.07.17: 
+ * 
+ * dmb: Data Memory Barrier
+ * sy : Any - Any : ALL (시스템에 있는 모든 코어)
+ * 
+ * - Modern SMP arch에서 발생할 수 있는 문제
+ *   stp와 __inval_dcache_area 중 어느 것이 더 먼저 수행될 지 보장하지 못함.
+ *   __inval_dcahce_area가 먼저 수행되는것을 방지하고 stp 명령어의 수행 결과를
+ *   보장하기 위해 memory barrier 명령어를 이용한다.
+ * - 캐시와의 관계성은? 
+ *   x0 .. x3까지의 모든 데이터를 boot_args에 저장하고 난 뒤 확실하게
+ *   정리하고, 그 이후에 데이터 캐시를 클린하도록 중간에 베리어 명령을 수행한다.
+ */
 	dmb	sy				// needed before dc ivac with
-						// MMU off
 
+/*
+ * IAMROOT, 2021.07.17: 
+ * 0x20: boot_args 배열의 전체 크기, sizeof(boot_args)
+ * x0: &boot_args
+ * x1: __inval_dcache_area의 size args로 넘어감.
+ */
 	mov	x1, #0x20			// 4 x 8 bytes
 	b	__inval_dcache_area		// tail call
 SYM_CODE_END(preserve_boot_args)

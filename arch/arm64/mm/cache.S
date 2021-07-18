@@ -139,6 +139,25 @@ SYM_FUNC_END(__clean_dcache_area_pou)
  *	- size    - size in question
  */
 SYM_FUNC_START_LOCAL(__dma_inv_area)
+
+/*
+ * IAMROOT, 2021.07.17: 
+ *
+ * - SYM_FUNC_START_PI(x) 해석:
+ *   - SYM_FUNC_START_ALIAS(__pi_##x): 하나의 FUNC에 1개 이상의 이름을
+ *                                     부여하고 싶을때 사용하는 매크로
+ *          .globl __pi___inval_dcache_area
+ *          .align 2;
+ *          __pi___inval_dcache_area:
+ *
+ *   - SYM_FUNC_START()
+ *          .globl __inval_dcache_area
+ *          .align 2;
+ *          __inval_dcache_area:
+ *
+ *   - BTI_C
+ *          hint 34;
+ */
 SYM_FUNC_START_PI(__inval_dcache_area)
 	/* FALLTHROUGH */
 
@@ -147,13 +166,75 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  *	- start   - virtual start address of region
  *	- size    - size in question
  */
+ /*
+  * IAMROOT, 2021.07.18: 
+  * __inval_dcache_area(char * start, int size) {
+  *	  int end = start + size;
+  *	  int dcache_min_line = dcache_line_size();	// 64로가정 0x40
+  *	  int mask = dcache_min_line - 1;		// 0x40 - 1 = 0x3f
+  *	  if(end & mark) {
+  *      	end &= ~(mark);
+  *      	clean_invalidated_cache(end); // dc civac, x1
+  *        } 
+  *        
+  *        if(start & mark) {
+  *        	  start &= ~(mark);
+  *        	  clean_invalidated_cache(start);
+  *        	  start += dcache_min_line;
+  *        }
+  *
+  *        while(start < end) {
+  *      	invalidated_cache(start);
+  *      	start += dcache_min_line;
+  *        }
+  *  }
+  */
+
 	add	x1, x1, x0
 	dcache_line_size x2, x3
+
+/* IAMROOT, 2021.07.17: 
+ * End line aligned를 체크하기 위해서 수행하는 인스트럭션
+ * 인스트럭션 결과로 모든 Bit가 Set
+ */
 	sub	x3, x2, #1
+
+/* IAMROOT, 2021.07.17: 
+ * tst r0, r1 : r0와 r1을 AND 연산한 것처럼 
+ * -> CPSR 의 NZCV Flag가 결정 
+ * -> Z가 영향을 받음
+ */
 	tst	x1, x3				// end cache line aligned?
+
+/* IAMROOT, 2021.07.17: 
+ * bic r0, r1, r2 : r1 & ~r2 의 결과에서 1을 다 Clear한 후 r0에 저장
+ */
 	bic	x1, x1, x3
+
+/* IAMROOT, 2021.07.17: 
+ * b.eq : 위의 tst 명령어로 인해서 Z flag = 1 이라면 1f 실행 
+ * 1f: 밑의 Label 1을 의미
+ */	
 	b.eq	1f
+
+/* IAMROOT, 2021.07.17: 
+ * D : Data cache
+ * U : Unified cache
+ * dc : 통합 캐시까지 모두 Clear
+ * Clean : Dirty bit가 marking된 cache line에 한하여
+ *         next level cache (unified L2) or main memory에
+ *         writing 후 dirty bit clear 수행.
+ *         (write-back policy 일때 적용되는 규칙)
+ * Invalidate : Cache line의 V Status를 Clear
+ *
+ * - Point of Coherency 의미 (SMP system)
+ *   For a particular address, the PoC is the point at which all
+ *   observers, for example, cores, DSPs, or DMA engines,
+ *   that can access memory, are guaranteed to see the same copy of a memory
+ *   location. Typically, this is the main external system memory.
+ */
 	dc	civac, x1			// clean & invalidate D / U line
+
 1:	tst	x0, x3				// start cache line aligned?
 	bic	x0, x0, x3
 	b.eq	2f

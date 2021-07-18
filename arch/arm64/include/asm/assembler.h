@@ -271,9 +271,16 @@ alternative_endif
  */
 	.macro	read_ctr, reg
 alternative_if_not ARM64_MISMATCHED_CACHE_TYPE
+/* IAMROOT, 2021.07.17:
+ * ctr_el0: Cache Type Register
+ */
 	mrs	\reg, ctr_el0			// read CTR
+/* IAMROOT, 2021.07.17: 1 cycle 휴식 */
 	nop
 alternative_else
+/* IAMROOT, 2021.07.17:
+ * Cache Type mismatched 라면?
+ */
 	ldr_l	\reg, arm64_ftr_reg_ctrel0 + ARM64_FTR_SYSVAL
 alternative_endif
 	.endm
@@ -292,6 +299,11 @@ alternative_endif
 
 /*
  * dcache_line_size - get the safe D-cache line size across all CPUs
+ */
+/* IAMROOT, 2021.07.17:
+ * - Cache Type Register에서 최소 데이터 캐시 라인을 바이트로 알아오기.
+ *   reg = 4 * 2^(CTR_EL0.DminLine)
+ *   예) reg = 4 * 2^4 = 64 bytes
  */
 	.macro	dcache_line_size, reg, tmp
 	read_ctr	\tmp
