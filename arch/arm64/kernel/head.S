@@ -230,6 +230,7 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 /*
  * IAMROOT, 2021.07.17: 
  * 0x20: boot_args 배열의 전체 크기, sizeof(boot_args)
+ * x0: &boot_args
  * x1: __inval_dcache_area의 size args로 넘어감.
  */
 	mov	x1, #0x20			// 4 x 8 bytes
