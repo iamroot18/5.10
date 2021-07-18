@@ -221,8 +221,17 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  * D : Data cache
  * U : Unified cache
  * dc : 통합 캐시까지 모두 Clear
- * Clean : Cache line의 내용을 모두 main memory에 업데이트
+ * Clean : Dirty bit가 marking된 cache line에 한하여
+ *         next level cache (unified L2) or main memory에
+ *         writing 후 dirty bit clear 수행.
+ *         (write-back policy 일때 적용되는 규칙)
  * Invalidate : Cache line의 V Status를 Clear
+ *
+ * - Point of Coherency 의미 (SMP system)
+ *   For a particular address, the PoC is the point at which all
+ *   observers, for example, cores, DSPs, or DMA engines,
+ *   that can access memory, are guaranteed to see the same copy of a memory
+ *   location. Typically, this is the main external system memory.
  */
 	dc	civac, x1			// clean & invalidate D / U line
 
