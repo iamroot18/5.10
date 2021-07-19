@@ -13,7 +13,8 @@
  * instead.
  */
 /* IAMROOT, 2021.07.17: 
- * hint: TODO
+ * BTI 관련 링크:
+ *  - https://www.phoronix.com/scan.php?page=news_item&px=ARM64-Linux-5.8-BTI-SCS
  */
 #define BTI_C hint 34 ;
 
