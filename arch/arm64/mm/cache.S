@@ -227,11 +227,39 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  *         (write-back policy 일때 적용되는 규칙)
  * Invalidate : Cache line의 V Status를 Clear
  *
- * - Point of Coherency 의미 (SMP system)
+ * - Point of Coherency 의미
  *   For a particular address, the PoC is the point at which all
  *   observers, for example, cores, DSPs, or DMA engines,
  *   that can access memory, are guaranteed to see the same copy of a memory
- *   location. Typically, this is the main external system memory.
+ *   location. Typically, this(PoC point) is the main external system memory.
+ *   - D-Cache와 관련이 있다.
+ *   - Main memory가 PoC point 이고 L1, L2, L3 모든 cache line에 대하여
+ *     clean 수행.
+ *
+ * - Point of Unification 의미
+ *   The PoU for a core is the point at which the instruction and
+ *   data caches and translation table walks of the core are guaranteed to
+ *   see the same copy of a memory location. For example, a unified level 2 cache
+ *   would be the point of unification in a system with Harvard level 1 caches and
+ *   a TLB for caching translation table entries.
+ *   If no external cache is present, main memory would be the Point of Unification.
+ *   - I-Cache와 관련이 있다.
+ *   - Unified (L2/L3) cache 까지만 적용
+ *
+ * - 시작/끝 주소가 cache line size에 맞춰 align이 필요한 경우
+ *   - boot_args[0], [3]: civac 적용
+ *              [1], [2]: ivac 적용
+ *   1. [0]과 [1]의 address를 align.
+ *   2. 시작과 끝 주소에 대해서만 civac 적용.
+ *     - cache controller는 clean & invalidate 작업에 대해 cache line size
+ *       만큼 진행하나 align 되어 있지 않다면 해당 주소와 연관되어 있는
+ *       main memory의 다른 부분이 함께 cache linefill된 경우이며 해당 부분의
+ *       cache coherency를 위하여 civac 명령어로 처리함.
+ *
+ * - dc 명령어와 cache controller의 관계
+ *   dc 명령어가 수행되면 cache controller의 queue에 push 되고 controller는
+ *   background에서 queue를 계속 처리한다. 또한, queue pool은 10개인데 100개의
+ *   요청이 들어오면 10개는 바로 push하고 90개는 대기하게 된다.
  */
 	dc	civac, x1			// clean & invalidate D / U line
 /*
@@ -248,6 +276,17 @@ SYM_FUNC_START_PI(__inval_dcache_area)
 3:	add	x0, x0, x2
 	cmp	x0, x1
 	b.lo	2b
+
+/*
+ * IAMROOT, 2021.07.24: 
+ *
+ * dsb: Data Synchronization Barrier
+ * sy : ALL cores
+ * - Pending load/store, cache maintenance insts, TLB maintenance insts의
+ *   수행 결과를 다음 명령어가 실행되기 전에 완료(보장)하기 위하여 사용.
+ * - dsb 명령어를 수행하게 되면 cache controller는 queue에 대기중인 명렁어
+ *   처리가 끝날때까지 input을 hold하고 queue pool을 처리한다.
+ */
 	dsb	sy
 	ret
 SYM_FUNC_END_PI(__inval_dcache_area)
