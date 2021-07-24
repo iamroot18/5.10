@@ -589,15 +589,50 @@ EXPORT_SYMBOL(kimage_vaddr)
  * Returns either BOOT_CPU_MODE_EL1 or BOOT_CPU_MODE_EL2 in w0 if
  * booted in EL1 or EL2 respectively.
  */
+
+/*
+ * IAMROOT, 2021.07.24: 
+ * 
+ */
 SYM_FUNC_START(el2_setup)
 	msr	SPsel, #1			// We want to use SP_EL{1,2}
+/*
+ * IAMROOT, 2021.07.24: 
+ * SPsel: 커널 진입 시 EL1, EL2 로 부팅이 되고,
+ *        부팅 되었던 Exception Level 의 Stack 선택한다.
+ */
 	mrs	x0, CurrentEL
+/*
+ * IAMROOT, 2021.07.24: 
+ * 현재 EL 을 x0 로 가져온다.
+ */
 	cmp	x0, #CurrentEL_EL2
+/*
+ * IAMROOT, 2021.07.24: 
+ * CurrentEL_EL2 는 8 로 정의됨
+ */
 	b.eq	1f
+/*
+ * IAMROOT, 2021.07.24: 
+ * CurrentEL_EL1 실행되는 코드 
+ */
 	mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 	msr	sctlr_el1, x0
+/*
+ * IAMROOT, 2021.07.24:
+ * SCTLR_EL1_RES1: SCTLR 예약 비트 5개
+ * ENDIAN_SET_EL1: Endian 설정
+ */
 	mov	w0, #BOOT_CPU_MODE_EL1		// This cpu booted in EL1
+
 	isb
+/*
+ * IAMROOT, 2021.07.24: 
+ * isb: Instruction Synchronization Barrier.
+ * 파이프라인을 비운다.
+ * 엔디안 설정이 끝나면 파이프라인을 비워서
+ * 바뀐 엔디안으로 실행되도록 한다.
+ */
 	ret
 
 1:	mov_q	x0, (SCTLR_EL2_RES1 | ENDIAN_SET_EL2)

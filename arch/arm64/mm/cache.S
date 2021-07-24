@@ -234,7 +234,11 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  *   location. Typically, this is the main external system memory.
  */
 	dc	civac, x1			// clean & invalidate D / U line
-
+/*
+ * IAMROOT, 2021.07.24: 
+ * data cache 정렬이 되지 않은 시작과 끝지점에 대해서는 
+ * 데이터 보호를 위해 clean 작업을 수행한다.
+ */
 1:	tst	x0, x3				// start cache line aligned?
 	bic	x0, x0, x3
 	b.eq	2f
