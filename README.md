@@ -60,3 +60,8 @@
 - 2021.07.17, Zoom 온라인(34명 참석)
 - ARM System Developers Guide 완료 
 - head.S의 preserve_boot_args() -> __inval_dcache_area() 
+
+### 9주차
+- 2021.07.24, Zoom 온라인(36명 참석)
+- ARM Programmers Guide: ~p161
+- head.S의 el2_setup 진행중
