@@ -37,8 +37,8 @@
 #include "efi-header.S"
 
 /*
- * IAMROOT, 2021.07.10: 
- * - 해당 코드는 bootloader에 의한 최소한의 초기화 작업이후의 코드임을 알린다. 
+ * IAMROOT, 2021.07.10:
+ * - 해당 코드는 bootloader에 의한 최소한의 초기화 작업이후의 코드임을 알린다.
  * - KERNEL_START --> 커널 시작 가상 주소(_text)
  * - 컴파일 타임에(페이지 프레임 크기와 페이지 테이블 사용 단계) 결정
  *   -> 0xFFFF_****_****_****
@@ -51,11 +51,11 @@
 #endif
 
 /*
- * IAMROOT, 2021.07.10: 
+ * IAMROOT, 2021.07.10:
  * - DTB(Device Tree Blob)
  *   디바이스 트리가 컴파일되어 빅엔디언 형태의 바이너리이다.
  *   FDT(Flattened Device Tree)라고도 불리운다.
- *   커널이 동작하기 위한 디바이스의 물리주소가 기록되어 있음. 
+ *   커널이 동작하기 위한 디바이스의 물리주소가 기록되어 있음.
  *   서버나 pc는 ACPI table이 있기때문에 필요가 없음
  *   SoC 기반의(ARM, embeded) 제품들은 UEFI가 없기때문에 device tree가 필요함.
  *   최근에 UEFI BIOS를 가진 ARM server는 ACPI 와 DT를 둘다 사용가능하다.
@@ -63,7 +63,7 @@
  * 아래 요구사항이 필요한 이유:
  * 1. mmu를 키려고 하기때문에 켜있으면 안됌.
  * 2. 기존에 mmu 없이 boot loader가 동작했기 때문에 꺼져 있는게 정상.
- *    (ARM 계열은 MMU가 꺼져 있으면 데이터 캐시를 킬수 없다. 
+ *    (ARM 계열은 MMU가 꺼져 있으면 데이터 캐시를 킬수 없다.
  *    일부 SoC에서 MMU off 상태에서 명령 캐시는 on 가능하다고 함)
  * - mmu = off 이유
  *   Startup entry point에서 mmu가 on 이라면 CPU가 명령어를 수행할 때
@@ -76,7 +76,7 @@
  * reference
  * - https://www.programmersought.com/article/20796227528/
  *
- * bootloader가 DRAM의 위치와 관계없이 relocatable한 code로 만들어주는 부분.  
+ * bootloader가 DRAM의 위치와 관계없이 relocatable한 code로 만들어주는 부분.
  * 아래 문맥의 callee : kernel caller: bootloader
  */
 
@@ -107,10 +107,10 @@ _head:
 	 */
 
 /*
- * IAMROOT, 2021.07.10: 
- * - add 는 커널입장에서는 의미없이 동작하는 코드지만, 
- *   외부에서 이커널을 볼때, UEFI를 지원한다는 것을 의미하는 
- *   MZ라는 MAGIC NUMBER를 확인 할 수 있다. 
+ * IAMROOT, 2021.07.10:
+ * - add 는 커널입장에서는 의미없이 동작하는 코드지만,
+ *   외부에서 이커널을 볼때, UEFI를 지원한다는 것을 의미하는
+ *   MZ라는 MAGIC NUMBER를 확인 할 수 있다.
  */
 	add	x13, x18, #0x16
 	b	primary_entry
@@ -183,7 +183,7 @@ SYM_CODE_END(primary_entry)
  */
 
 /*
- * IAMROOT, 2021.07.17: 
+ * IAMROOT, 2021.07.17:
  *
  * - SYM_CODE_START_LOCAL() 해석
  *      .align 2;
@@ -196,7 +196,7 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	adr_l	x0, boot_args			// record the contents of
 
 /*
- * IAMROOT, 2021.07.17: 
+ * IAMROOT, 2021.07.17:
  *
  * str x21, boot_args
  * str x1, boot_args + 8 = boot_args[1];
@@ -204,31 +204,31 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
 
 /*
- * IAMROOT, 2021.07.17: 
- * 
+ * IAMROOT, 2021.07.17:
+ *
  * str x2, boot_args[2];
  * str x3, boot_args[3];
  */
 	stp	x2, x3, [x0, #16]
 
 /*
- * IAMROOT, 2021.07.17: 
- * 
+ * IAMROOT, 2021.07.17:
+ *
  * dmb: Data Memory Barrier
  * sy : Any - Any : ALL (시스템에 있는 모든 코어)
- * 
+ *
  * - Modern SMP arch에서 발생할 수 있는 문제
  *   stp와 __inval_dcache_area 중 어느 것이 더 먼저 수행될 지 보장하지 못함.
  *   __inval_dcahce_area가 먼저 수행되는것을 방지하고 stp 명령어의 수행 결과를
  *   보장하기 위해 memory barrier 명령어를 이용한다.
- * - 캐시와의 관계성은? 
+ * - 캐시와의 관계성은?
  *   x0 .. x3까지의 모든 데이터를 boot_args에 저장하고 난 뒤 확실하게
  *   정리하고, 그 이후에 데이터 캐시를 클린하도록 중간에 베리어 명령을 수행한다.
  */
 	dmb	sy				// needed before dc ivac with
 
 /*
- * IAMROOT, 2021.07.17: 
+ * IAMROOT, 2021.07.17:
  * 0x20: boot_args 배열의 전체 크기, sizeof(boot_args)
  * x0: &boot_args
  * x1: __inval_dcache_area의 size args로 넘어감.
@@ -591,30 +591,30 @@ EXPORT_SYMBOL(kimage_vaddr)
  */
 
 /*
- * IAMROOT, 2021.07.24: 
- * 
+ * IAMROOT, 2021.07.24:
+ *
  */
 SYM_FUNC_START(el2_setup)
 	msr	SPsel, #1			// We want to use SP_EL{1,2}
 /*
- * IAMROOT, 2021.07.24: 
+ * IAMROOT, 2021.07.24:
  * SPsel: 커널 진입 시 EL1, EL2 로 부팅이 되고,
  *        부팅 되었던 Exception Level 의 Stack 선택한다.
  */
 	mrs	x0, CurrentEL
 /*
- * IAMROOT, 2021.07.24: 
+ * IAMROOT, 2021.07.24:
  * 현재 EL 을 x0 로 가져온다.
  */
 	cmp	x0, #CurrentEL_EL2
 /*
- * IAMROOT, 2021.07.24: 
+ * IAMROOT, 2021.07.24:
  * CurrentEL_EL2 는 8 로 정의됨
  */
 	b.eq	1f
 /*
- * IAMROOT, 2021.07.24: 
- * CurrentEL_EL1 실행되는 코드 
+ * IAMROOT, 2021.07.24:
+ * CurrentEL_EL1 실행되는 코드
  */
 	mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 	msr	sctlr_el1, x0
@@ -627,7 +627,7 @@ SYM_FUNC_START(el2_setup)
 
 	isb
 /*
- * IAMROOT, 2021.07.24: 
+ * IAMROOT, 2021.07.24:
  * isb: Instruction Synchronization Barrier.
  * 파이프라인을 비운다.
  * 엔디안 설정이 끝나면 파이프라인을 비워서
@@ -638,12 +638,24 @@ SYM_FUNC_START(el2_setup)
 1:	mov_q	x0, (SCTLR_EL2_RES1 | ENDIAN_SET_EL2)
 	msr	sctlr_el2, x0
 
+/*
+ * IAMROOT, 2021. 07. 31:
+ * VHE : Virtualization host extensions
+ * 이전에는 부팅을 EL2에서 커널 실행은 EL1
+ * VHE는 EL2에서 커널이 실행 됨
+ * 사용 목적 kvm 가속을 빠르게 하기 위해서 사용함
+ */
 #ifdef CONFIG_ARM64_VHE
 	/*
 	 * Check for VHE being present. For the rest of the EL2 setup,
 	 * x2 being non-zero indicates that we do have VHE, and that the
 	 * kernel is intended to run at EL2.
 	 */
+	 /*
+	  * IAMROOT, 2021. 07. 31:
+	  * id registers 4bit id 필드로 기능에 대한 내용
+	  * VHE 기능이 있는지 없는지 확인
+	  */
 	mrs	x2, id_aa64mmfr1_el1
 	ubfx	x2, x2, #ID_AA64MMFR1_VHE_SHIFT, #4
 #else

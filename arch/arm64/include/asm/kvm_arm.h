@@ -79,6 +79,17 @@
 			 HCR_AMO | HCR_SWIO | HCR_TIDCP | HCR_RW | HCR_TLOR | \
 			 HCR_FMO | HCR_IMO | HCR_PTW )
 #define HCR_VIRT_EXCP_MASK (HCR_VSE | HCR_VI | HCR_VF)
+/*
+ * IAMROOT, 2021. 07. 31:
+ * pointer authentication : Any attempt to use the Pointer Authentication instructions will
+ * result in an UNDEFINED exception being injected into the guest.
+ * pointer tagging과 유사
+ * RW: 32, 64bit 사용
+ * API: instruction 에러 발생시 인트럽트 발생 여부 결정
+ * APK: instruction 에러 발생시 인트럽트 발생 여부 결정
+ * ATA: Allocation Tags Access 기능 설정
+ * TGE: (Trap General Exceptions) VHE를 사용 할 때  EL0서 발생한 exception을 EL2에 routed 시켜줌
+ */
 #define HCR_HOST_NVHE_FLAGS (HCR_RW | HCR_API | HCR_APK | HCR_ATA)
 #define HCR_HOST_VHE_FLAGS (HCR_RW | HCR_TGE | HCR_E2H)
 
