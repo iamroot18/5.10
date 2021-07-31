@@ -507,18 +507,34 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	 *         between 2 and 4 movz/movk instructions (depending on the
 	 *         magnitude and sign of the operand)
 	 */
+
+
+	/*
+	 * IAMROOT, 2021.07.24: 
+	 * reg 에 val 값을 대입한다. 단, 64 비트 레지스터이며,
+	 * val 의 값은 상수여야 한다.
+	 */
 	.macro	mov_q, reg, val
 	.if (((\val) >> 31) == 0 || ((\val) >> 31) == 0x1ffffffff)
-	movz	\reg, :abs_g1_s:\val
+		movz	\reg, :abs_g1_s:\val
+		/*
+		 *  IAMROOT, 2021.07.24:
+		 *  movz reg, shift, val
+		 *  
+		 *  abs_g1_s: Absolute, signed, [31:16] range
+		 *  https://www.keil.com/support/man/docs/armclang_ref/armclang_ref_zvb1510926525383.htm
+		 */
 	.else
-	.if (((\val) >> 47) == 0 || ((\val) >> 47) == 0x1ffff)
-	movz	\reg, :abs_g2_s:\val
-	.else
-	movz	\reg, :abs_g3:\val
-	movk	\reg, :abs_g2_nc:\val
+		.if (((\val) >> 47) == 0 || ((\val) >> 47) == 0x1ffff)
+			movz	\reg, :abs_g2_s:\val
+		.else
+			movz	\reg, :abs_g3:\val
+			movk	\reg, :abs_g2_nc:\val
+		.endif
+
+		movk	\reg, :abs_g1_nc:\val
 	.endif
-	movk	\reg, :abs_g1_nc:\val
-	.endif
+
 	movk	\reg, :abs_g0_nc:\val
 	.endm
 

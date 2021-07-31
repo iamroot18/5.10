@@ -55,4 +55,13 @@
 ### 7주차
 - 2021.07.10, Zoom 온라인(43명 참석)
 - ARM System Developers Guide 책, ~p69, 3.3.3 Multiple-Register Transfer
-- 
+
+### 8주차
+- 2021.07.17, Zoom 온라인(34명 참석)
+- ARM System Developers Guide 완료 
+- head.S의 preserve_boot_args() -> __inval_dcache_area() 
+
+### 9주차
+- 2021.07.24, Zoom 온라인(36명 참석)
+- ARM Programmers Guide: ~p161
+- head.S의 el2_setup 진행중

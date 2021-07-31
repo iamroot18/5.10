@@ -611,6 +611,11 @@
 
 #ifdef CONFIG_CPU_BIG_ENDIAN
 #define ENDIAN_SET_EL1		(SCTLR_EL1_E0E | SCTLR_ELx_EE)
+/*
+ * IAMROOT, 2021.07.24:
+ * SCTLR = System Control Register
+ * E0E, EE 를 통해 Endian 을 설정한다.
+ */
 #else
 #define ENDIAN_SET_EL1		0
 #endif
