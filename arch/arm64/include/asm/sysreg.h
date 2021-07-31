@@ -51,7 +51,7 @@
 #ifdef __ASSEMBLY__
 // The space separator is omitted so that __emit_inst(x) can be parsed as
 // either an assembler directive or an assembler macro argument.
-#define __emit_inst(x)			.inst(x)
+#define __emit_inst(x)			.inst(x) // IAMROOT-18, 2021.07.31 : 상수를 instruction으로 치환하는 directive.
 #else
 #define __emit_inst(x)			".inst " __stringify((x)) "\n\t"
 #endif

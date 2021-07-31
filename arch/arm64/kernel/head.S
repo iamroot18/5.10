@@ -680,6 +680,11 @@ set_hcr:
 	 * to transparently mess with the EL0 bits via CNTKCTL_EL1 access in
 	 * EL2.
 	 */
+/* 
+ *  IAMROOT-18, 2021.07.31
+ * VHE가 nVHE로 동작할 때, cnthctl_el2의 physical timer & counter를 enable 시킴.
+ * 커널이 EL2-VHE로 동작 시 마치 EL1으로 동작하는 것과 같게 만드는 것을 보장하는 코드.
+ *  */
 	cbnz	x2, 1f
 	mrs	x0, cnthctl_el2
 	orr	x0, x0, #3			// Enable EL1 physical timers
