@@ -590,48 +590,44 @@ EXPORT_SYMBOL(kimage_vaddr)
  * booted in EL1 or EL2 respectively.
  */
 
-/*
- * IAMROOT, 2021.07.24:
- *
- */
 SYM_FUNC_START(el2_setup)
 	msr	SPsel, #1			// We want to use SP_EL{1,2}
 /*
  * IAMROOT, 2021.07.24:
- * SPsel: 커널 진입 시 EL1, EL2 로 부팅이 되고,
- *        부팅 되었던 Exception Level 의 Stack 선택한다.
+ * - SPsel: 커널 진입 시 EL1, EL2 로 부팅이 되고,
+ *          부팅 되었던 Exception Level 의 Stack 선택한다.
  */
 	mrs	x0, CurrentEL
 /*
  * IAMROOT, 2021.07.24:
- * 현재 EL 을 x0 로 가져온다.
+ * - 현재 EL 을 x0 로 가져온다.
  */
 	cmp	x0, #CurrentEL_EL2
 /*
  * IAMROOT, 2021.07.24:
- * CurrentEL_EL2 는 8 로 정의됨
+ * - CurrentEL_EL2 는 8 로 정의됨
  */
 	b.eq	1f
 /*
  * IAMROOT, 2021.07.24:
- * CurrentEL_EL1 실행되는 코드
+ * - CurrentEL_EL1 실행되는 코드
  */
 	mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 	msr	sctlr_el1, x0
 /*
  * IAMROOT, 2021.07.24:
- * SCTLR_EL1_RES1: SCTLR 예약 비트 5개
- * ENDIAN_SET_EL1: Endian 설정
+ * - SCTLR_EL1_RES1: SCTLR 예약 비트 5개
+ * - ENDIAN_SET_EL1: Endian 설정
  */
 	mov	w0, #BOOT_CPU_MODE_EL1		// This cpu booted in EL1
 
 	isb
 /*
  * IAMROOT, 2021.07.24:
- * isb: Instruction Synchronization Barrier.
- * 파이프라인을 비운다.
- * 엔디안 설정이 끝나면 파이프라인을 비워서
- * 바뀐 엔디안으로 실행되도록 한다.
+ * - isb: Instruction Synchronization Barrier.
+ *   파이프라인을 비운다.
+ *   엔디안 설정이 끝나면 파이프라인을 비워서
+ *   바뀐 엔디안으로 실행되도록 한다.
  */
 	ret
 
@@ -640,10 +636,10 @@ SYM_FUNC_START(el2_setup)
 
 /*
  * IAMROOT, 2021. 07. 31:
- * VHE : Virtualization host extensions
- * 이전에는 부팅을 EL2에서 커널 실행은 EL1
- * VHE는 EL2에서 커널이 실행 됨
- * 사용 목적 kvm 가속을 빠르게 하기 위해서 사용함
+ *   VHE : Virtualization host extensions
+ *   이전에는 부팅을 EL2에서 커널 실행은 EL1
+ *   VHE는 EL2에서 커널이 실행 됨
+ *   사용 목적 kvm 가속을 빠르게 하기 위해서 사용함
  */
 #ifdef CONFIG_ARM64_VHE
 	/*
@@ -651,11 +647,11 @@ SYM_FUNC_START(el2_setup)
 	 * x2 being non-zero indicates that we do have VHE, and that the
 	 * kernel is intended to run at EL2.
 	 */
-	 /*
-	  * IAMROOT, 2021. 07. 31:
-	  * id registers 4bit id 필드로 기능에 대한 내용
-	  * VHE 기능이 있는지 없는지 확인
-	  */
+/*
+ * IAMROOT, 2021. 07. 31:
+ * - VHE 기능이 있는지 없는지 확인(x2: 0=none, 1=support)
+ * - id registers: 4bit id 필드로 기능에 대한 내용
+ */
 	mrs	x2, id_aa64mmfr1_el1
 	ubfx	x2, x2, #ID_AA64MMFR1_VHE_SHIFT, #4
 #else
@@ -681,10 +677,10 @@ set_hcr:
 	 * EL2.
 	 */
 /* 
- *  IAMROOT-18, 2021.07.31
- * VHE가 nVHE로 동작할 때, cnthctl_el2의 physical timer & counter를 enable 시킴.
- * 커널이 EL2-VHE로 동작 시 마치 EL1으로 동작하는 것과 같게 만드는 것을 보장하는 코드.
- *  */
+ * IAMROOT-18, 2021.07.31
+ * - nVHE로 동작할 때, cnthctl_el2의 physical timer & counter를 enable 시킴.
+ *   커널이 EL2-VHE로 동작 시 마치 EL1으로 동작하는 것과 같게 만드는 것을 보장하는 코드.
+ */
 	cbnz	x2, 1f
 	mrs	x0, cnthctl_el2
 	orr	x0, x0, #3			// Enable EL1 physical timers
