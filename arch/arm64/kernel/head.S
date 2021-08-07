@@ -832,6 +832,17 @@ set_hcr:
 	msr	mdcr_el2, x3			// Configure debug traps
 /* IAMROOT, 2021.08.07: NO */
 
+/* IAMROOT, 2021.08.07: NO 
+ * LORegion: Limited Ordering Region 어드레스 범위를 오더링 제한
+ * LO [19:16] 
+ * 0x1 LoReigion Supported
+ * 
+ * LORC : LOR control
+ * DS [3:2]
+ * LORSA_EL1, LOREA_EL1 시작과 끝의 범위를 지정
+ * EN [0]
+ * Enable 1 , disable 0
+ */
 	/* LORegions */
 	mrs	x1, id_aa64mmfr1_el1
 	ubfx	x0, x1, #ID_AA64MMFR1_LOR_SHIFT, 4
@@ -839,15 +850,47 @@ set_hcr:
 	msr_s	SYS_LORC_EL1, xzr
 1:
 
+
+
+/* IAMROOT, 2021.08.07: NO 
+ * TTBR0_EL2 
+ *   하이퍼바이저가 사용
+ * VTTBR0_EL2 
+ *   Guest OS(또는 application EL0) 에서 진짜 주소로 변환하는 과정에서 
+ *   stage1과 stage2를 거쳐 physical memory를 받음, 이 때 stage2에서 사용
+ *   TTBR0_EL1은 stage1에서 사용
+ *
+ * TTBR & VTTBR 현재 돌아가는 운영체제와 에플리케이션을 look up할 때 사용
+ * TTBR의 ASID(운영체제), VTTBR의 VMID(애플리케이션)
+ */
 	/* Stage-2 translation */
 	msr	vttbr_el2, xzr
 
+/* IAMROOT, 2021.08.07: NO 
+ * VHE가 서포트 되는지 않되는지
+ * 1: VHE , 0: nVHE
+ *
+ * w0 - x0의 하위 32bit
+ * BOOT_CPU_MODE_EL2 == 0xe12
+ * 
+ * isb(instruction syncronization barrier)
+ *   파이프라인 비워줌
+ */
 	cbz	x2, install_el2_stub
-
 	mov	w0, #BOOT_CPU_MODE_EL2		// This CPU booted in EL2
 	isb
 	ret
 
+/* IAMROOT, 2021.08.07: NO 
+ * SYM_L_LOCAL 왜 LOCAL을 넣었는지
+ *   컴파일러에게 일러줌 (불필요한 메모리 낭비를 줄이기 위해LOCAL) 
+ *   + 이름이 겹쳐도 상관없게
+ *   e.g. link타임에 extern과 같은 심벌로 들어가지 않게
+ *
+ * install_el2_stub --> stub? 
+ *   구현이 제대로 된 큰 코드가 아닌, 조금한 조각
+ *   무거운 el2에서 돌다 el1으로 패스하는 역할만
+ */
 SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 	/*
 	 * When VHE is not in use, early init of EL2 and EL1 needs to be
@@ -856,24 +899,50 @@ SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 	 * requires no configuration, and all non-hyp-specific EL2 setup
 	 * will be done via the _EL1 system register aliases in __cpu_setup.
 	 */
+
+/* IAMROOT, 2021.08.07: NO 
+ * SCTLR_EL1 - kernel config 값에 따라 Endian이 설정 
+ */
 	mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 	msr	sctlr_el1, x0
 
+/* IAMROOT, 2021.08.07: NO 
+ * cptr_el에 0x33ff
+ * TFP [10] - 0
+ *   0b0: trap이 일어나지 않도록, 0b1: trap이 일어나도록
+ * TZ [8] - 1 (SVE 명령을 사용할 때)
+ *   0b0: trap이 일어나지 않도록, 0b1: trap이 일어나도록 
+ * 나머지 비트는 RES1을 1로 
+ */
 	/* Coprocessor traps. */
 	mov	x0, #0x33ff
 	msr	cptr_el2, x0			// Disable copro. traps to EL2
 
+/* IAMROOT, 2021.08.07: NO 
+ * SVE가 내장되어 있는지 확인 후 (어차피 없으면 SVE를 사용하는 어플리케이션이  종료됨)
+ * 없다면 branch 
+ * cptr_el2의 TZ 클리어 
+ */
 	/* SVE register access */
 	mrs	x1, id_aa64pfr0_el1
 	ubfx	x1, x1, #ID_AA64PFR0_SVE_SHIFT, #4
 	cbz	x1, 7f
 
+
+/* IAMROOT, 2021.08.07: NO 
+ * 클리어된값을 cptr에 적용 
+ * ZCR_ELx_LEN_MASK == 0x1ff
+ * SYS_ZCR_EL2
+ *   SVE를 위해 가장 큰 벡터길이로 활성화시킨다
+ * LEN [3:0]
+ *   이때 길이는 (LEN+1)x128 bits 
+ */
 	bic	x0, x0, #CPTR_EL2_TZ		// Also disable SVE traps
 	msr	cptr_el2, x0			// Disable copro. traps to EL2
 	isb
 	mov	x1, #ZCR_ELx_LEN_MASK		// SVE: Enable full vector
 	msr_s	SYS_ZCR_EL2, x1			// length for EL1.
-
+  
 	/* Hypervisor stub */
 7:	adr_l	x0, __hyp_stub_vectors
 	msr	vbar_el2, x0
