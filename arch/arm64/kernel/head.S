@@ -686,36 +686,122 @@ set_hcr:
 	orr	x0, x0, #3			// Enable EL1 physical timers
 	msr	cnthctl_el2, x0
 1:
+/* IAMROOT, 2021.08.07:
+ * 64-bit virtual offset을 가지고 있음
+ * - Guest OS에서 사용할 Virtual Counter 값을 이 레지스터의 offset과
+ *   Physical counter 값과 계산하여 결정하는데 사용함. 
+ *
+ *   Physical Counter 
+ * - VOFF
+ * ----------
+ *   Virtual Counter -> Guest OS에서 사용
+ */
 	msr	cntvoff_el2, xzr		// Clear virtual offset
 
 #ifdef CONFIG_ARM_GIC_V3
 	/* GICv3 system register access */
+/* IAMROOT, 2021.08.07:
+ * 해당 레지스터는 PE에 구현된 기능에 대해 정보 제공
+ * ID_AA64_*: 지원 기능들을 4bit 단위로 제공함을 의미
+ */
 	mrs	x0, id_aa64pfr0_el1
+/* IAMROOT, 2021.08.07:
+ * - GIC: GIC 시스템 레지스터 인터페이스 제공 여부
+ *      0b0000: GIC 인터페이스 제공(X), Memory-mapped 방식 이용
+ *      0b0001: v3/4 버전 인터페이스 사용
+ *      0b0011: v4.1 버전 인터페이스 사용
+ */
 	ubfx	x0, x0, #ID_AA64PFR0_GIC_SHIFT, #4
 	cbz	x0, 3f
 
+/* IAMROOT, 2021.08.07:
+ * EL2에서 사용하는 GIC 시스템을 enable 하기위한 레지스터
+ *
+ * - SRE: System Register Enable
+ *   0x0: Memory-mapped 이용
+ *   0x1: GIC 시스템 레지스터 이용
+ * - ENABLE: 
+ *   0x0: (??)
+ *   0x1: EL0의 exception이 EL2가 아닌 EL1에서 처리되도록 함.
+ *        해당 trap이 정상적임을 의미(?)
+ *
+ * - RAO/WI type bit:
+ *   해당 bit 값을 항상 1로 읽음
+ */
 	mrs_s	x0, SYS_ICC_SRE_EL2
 	orr	x0, x0, #ICC_SRE_EL2_SRE	// Set ICC_SRE_EL2.SRE==1
 	orr	x0, x0, #ICC_SRE_EL2_ENABLE	// Set ICC_SRE_EL2.Enable==1
 	msr_s	SYS_ICC_SRE_EL2, x0
 	isb					// Make sure SRE is now set
+/* IAMROOT, 2021.08.07:
+ * ICC_SRE_EL2의 SRE(0bit)를 다시 읽고 체크하여 0이면 초기화가 되지
+ * 않았으므로 레이블 3으로 점프
+ *
+ * TBZ: test #<imm> bit and branch if zero
+ */
 	mrs_s	x0, SYS_ICC_SRE_EL2		// Read SRE back,
 	tbz	x0, #0, 3f			// and check that it sticks
+/* IAMROOT, 2021.08.07:
+ * Hypervisor에서 사용하는 GIC용 Hyper control 레지스터 값 초기화
+ * ICH_*: per-cpu 레지스터
+ */
 	msr_s	SYS_ICH_HCR_EL2, xzr		// Reset ICC_HCR_EL2 to defaults
 
 3:
 #endif
 
 	/* Populate ID registers. */
+/* IAMROOT, 2021.08.07:
+ * midr: PE에 대한 ID 정보 제공
+ * - Soc Vendor
+ * - ARM arch
+ * - Variant: 하위 SoC에 의해 몇가지 변경된 제품에서 사용 
+ * - PartNum: 하위 SoC에 의해 몇가지 변경된 제품에서 사용
+ * - Rev.
+ *
+ * mpidr: Multiprocessor Affinity Register
+ * scheduling 목적으로 사용되는 core id 정보
+ * per-cpu로 존재하는 sys-regs이며 각 cpu마다 다른 값(core number)을 가지게 된다.
+ * 이 값들은 S/W scheduling에 사용되며 그때 CPU/Cluster를 구분하는데 사용한다.
+ *
+ * MT(bit): Hyper-threading 관련
+ * MT 0:
+ * - aff0: core number (rasp4: 4개 aff0값에 0, 1, 2, 3이 들어있음)
+ * - aff1: cluster에 대한 정보
+ * - aff2: cluster 단계에서 더 높은 레벨
+ * MT 1:
+ * - aff0: h/w thread number
+ * - aff1: core number
+ * - aff2: cluster에 대한 정보
+ * - aff3: cluster 단계에서 더 높은 레벨
+ */
 	mrs	x0, midr_el1
 	mrs	x1, mpidr_el1
+/* IAMROOT, 2021.08.07:
+ * 위 정보들을 Hypervisor 시스템 레지스터에 저장
+ */
 	msr	vpidr_el2, x0
 	msr	vmpidr_el2, x1
-
+/* IAMROOT, 2021.08.07:
+ * 32-bit EL0에서 동작하는 S/W 기능을 64-bit 시스템에서도 동작할 수 있도록
+ * 기능 Enable
+ *
+ * - user helper:
+ *   syscall로는 느리지만 kernel func를 빠르게 접근할 수 있는 특수 기능
+ *   - timer-counter (빠르게 처리해야 함)
+ *   - barrier
+ *   * 32bit 에서만 지원하는 코드 (제약이 많은 32bit 시스템에서 사용)
+ * - VFP: Vector floating point
+ */
 #ifdef CONFIG_COMPAT
+    /* IAMROOT, 2021.08.07:
+     * 32-bit S/W의 경우 CP15를 접근하는 부분이 있으므로 EL2로 trap하는 것을
+     * disable 함
+     */
 	msr	hstr_el2, xzr			// Disable CP15 traps to EL2
 #endif
 
+/* IAMROOT, 2021.08.07: NO */
 	/* EL2 debug */
 	mrs	x1, id_aa64dfr0_el1
 	sbfx	x0, x1, #ID_AA64DFR0_PMUVER_SHIFT, #4
@@ -744,6 +830,7 @@ set_hcr:
 	orr	x3, x3, #MDCR_EL2_TPMS		// and disable access from EL1
 7:
 	msr	mdcr_el2, x3			// Configure debug traps
+/* IAMROOT, 2021.08.07: NO */
 
 	/* LORegions */
 	mrs	x1, id_aa64mmfr1_el1

@@ -1005,10 +1005,12 @@
 	.equ	.L__reg_num_xzr, 31
 
 	.macro	mrs_s, rt, sreg
+/* IAMROOT, 2021.08.07: MRS를 hex로 표현 */
 	 __emit_inst(0xd5200000|(\sreg)|(.L__reg_num_\rt))
 	.endm
 
 	.macro	msr_s, sreg, rt
+/* IAMROOT, 2021.08.07: MSR를 hex로 표현 */
 	__emit_inst(0xd5000000|(\sreg)|(.L__reg_num_\rt))
 	.endm
 
