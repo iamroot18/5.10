@@ -687,12 +687,11 @@ set_hcr:
 	msr	cnthctl_el2, x0
 1:
 /* IAMROOT, 2021.08.07:
- * 64-bit virtual offset을 가지고 있음
- * - Guest OS에서 사용할 Virtual Counter 값을 이 레지스터의 offset과
- *   Physical counter 값과 계산하여 결정하는데 사용함. 
+ * 64-bit virtual offset을 가지고 있으며 voff 값은 Guest OS에서 사용할
+ * Virtual Counter 값을 계산하는데 이용. 
  *
  *   Physical Counter 
- * - VOFF
+ * - voffset
  * ----------
  *   Virtual Counter -> Guest OS에서 사용
  */
@@ -701,21 +700,21 @@ set_hcr:
 #ifdef CONFIG_ARM_GIC_V3
 	/* GICv3 system register access */
 /* IAMROOT, 2021.08.07:
- * 해당 레지스터는 PE에 구현된 기능에 대해 정보 제공
+ * PE에 구현된 기능에 대해 정보 제공
  * ID_AA64_*: 지원 기능들을 4bit 단위로 제공함을 의미
  */
 	mrs	x0, id_aa64pfr0_el1
 /* IAMROOT, 2021.08.07:
- * - GIC: GIC 시스템 레지스터 인터페이스 제공 여부
- *      0b0000: GIC 인터페이스 제공(X), Memory-mapped 방식 이용
- *      0b0001: v3/4 버전 인터페이스 사용
- *      0b0011: v4.1 버전 인터페이스 사용
+ * GIC: GIC 시스템 레지스터 인터페이스 제공 여부
+ * - 0b0000: GIC 인터페이스 제공(X), Memory-mapped 방식 이용
+ * - 0b0001: v3/4 버전 인터페이스 사용
+ * - 0b0011: v4.1 버전 인터페이스 사용
  */
 	ubfx	x0, x0, #ID_AA64PFR0_GIC_SHIFT, #4
 	cbz	x0, 3f
 
 /* IAMROOT, 2021.08.07:
- * EL2에서 사용하는 GIC 시스템을 enable 하기위한 레지스터
+ * EL2에서 사용하는 GIC 시스템 레지스터를 enable 하기위한 레지스터
  *
  * - SRE: System Register Enable
  *   0x0: Memory-mapped 이용
@@ -752,51 +751,53 @@ set_hcr:
 
 	/* Populate ID registers. */
 /* IAMROOT, 2021.08.07:
- * midr: PE에 대한 ID 정보 제공
- * - Soc Vendor
- * - ARM arch
+ * midr: PE에 대한 ID 정보 제공.
+ * - SoC Vendor
+ * - Architecture
  * - Variant: 하위 SoC에 의해 몇가지 변경된 제품에서 사용 
  * - PartNum: 하위 SoC에 의해 몇가지 변경된 제품에서 사용
  * - Rev.
  *
+ *  Implementation Defined: ARM이 아닌 SoC들이 설정할 수 있는 비트 필드.
+ * !Implementation Defined: Global로서 ARM이 설정해놓는 비트 필드.
+ *
  * mpidr: Multiprocessor Affinity Register
- * scheduling 목적으로 사용되는 core id 정보
- * per-cpu로 존재하는 sys-regs이며 각 cpu마다 다른 값(core number)을 가지게 된다.
- * 이 값들은 S/W scheduling에 사용되며 그때 CPU/Cluster를 구분하는데 사용한다.
+ * Scheduling 목적으로 사용되는 Core ID 정보 제공.
+ * - per-cpu로 존재하는 시스템 레지스터이며 cpu 마다 다른값(Core Number)을 가짐.
+ *   이 값들은 S/W Scheduling에 사용되며 CPU/Cluster를 구분하는데 사용.
  *
  * MT(bit): Hyper-threading 관련
- * MT 0:
- * - aff0: core number (rasp4: 4개 aff0값에 0, 1, 2, 3이 들어있음)
- * - aff1: cluster에 대한 정보
- * - aff2: cluster 단계에서 더 높은 레벨
- * MT 1:
- * - aff0: h/w thread number
- * - aff1: core number
- * - aff2: cluster에 대한 정보
- * - aff3: cluster 단계에서 더 높은 레벨
+ *   * MT 0:
+ *     - aff0: Core Number
+ *             (rasp4: per-cpu aff0에 0, 1, 2, 3이 들어있음)
+ *     - aff1: Cluster에 대한 정보
+ *     - aff2: Cluster 단계에서 더 높은 레벨
+ *   * MT 1:
+ *     - aff0: H/W Thread Number
+ *     - aff1: Core Number
+ *     - aff2: Cluster에 대한 정보
+ *     - aff3: Cluster 단계에서 더 높은 레벨
  */
 	mrs	x0, midr_el1
 	mrs	x1, mpidr_el1
-/* IAMROOT, 2021.08.07:
- * 위 정보들을 Hypervisor 시스템 레지스터에 저장
- */
+/* IAMROOT, 2021.08.07: 위 정보들을 Hypervisor 시스템 레지스터에 저장 */
 	msr	vpidr_el2, x0
 	msr	vmpidr_el2, x1
 /* IAMROOT, 2021.08.07:
  * 32-bit EL0에서 동작하는 S/W 기능을 64-bit 시스템에서도 동작할 수 있도록
- * 기능 Enable
+ * 기능 Enable.
  *
  * - user helper:
- *   syscall로는 느리지만 kernel func를 빠르게 접근할 수 있는 특수 기능
- *   - timer-counter (빠르게 처리해야 함)
- *   - barrier
- *   * 32bit 에서만 지원하는 코드 (제약이 많은 32bit 시스템에서 사용)
- * - VFP: Vector floating point
+ *   Syscall로는 느리지만 Kernel Func를 빠르게 접근할 수 있는 특수 기능
+ *   - Timer-counter (빠르게 처리해야 함)
+ *   - Barrier
+ *   - 32bit에서'만' 지원하는 코드 (제약이 많은 32bit 시스템에서 사용)
+ * - VFP: Vector Floating Point
  */
 #ifdef CONFIG_COMPAT
     /* IAMROOT, 2021.08.07:
      * 32-bit S/W의 경우 CP15를 접근하는 부분이 있으므로 EL2로 trap하는 것을
-     * disable 함
+     * disable.
      */
 	msr	hstr_el2, xzr			// Disable CP15 traps to EL2
 #endif
@@ -832,7 +833,7 @@ set_hcr:
 	msr	mdcr_el2, x3			// Configure debug traps
 /* IAMROOT, 2021.08.07: NO */
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * LORegion: Limited Ordering Region 어드레스 범위를 오더링 제한
  * LO [19:16] 
  * 0x1 LoReigion Supported
@@ -852,7 +853,7 @@ set_hcr:
 
 
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * TTBR0_EL2 
  *   하이퍼바이저가 사용
  * VTTBR0_EL2 
@@ -866,7 +867,7 @@ set_hcr:
 	/* Stage-2 translation */
 	msr	vttbr_el2, xzr
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * VHE가 서포트 되는지 않되는지
  * 1: VHE , 0: nVHE
  *
@@ -881,7 +882,7 @@ set_hcr:
 	isb
 	ret
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * SYM_L_LOCAL 왜 LOCAL을 넣었는지
  *   컴파일러에게 일러줌 (불필요한 메모리 낭비를 줄이기 위해LOCAL) 
  *   + 이름이 겹쳐도 상관없게
@@ -900,13 +901,13 @@ SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 	 * will be done via the _EL1 system register aliases in __cpu_setup.
 	 */
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * SCTLR_EL1 - kernel config 값에 따라 Endian이 설정 
  */
 	mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 	msr	sctlr_el1, x0
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * cptr_el에 0x33ff
  * TFP [10] - 0
  *   0b0: trap이 일어나지 않도록, 0b1: trap이 일어나도록
@@ -918,7 +919,7 @@ SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 	mov	x0, #0x33ff
 	msr	cptr_el2, x0			// Disable copro. traps to EL2
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * SVE가 내장되어 있는지 확인 후 (어차피 없으면 SVE를 사용하는 어플리케이션이  종료됨)
  * 없다면 branch 
  * cptr_el2의 TZ 클리어 
@@ -929,7 +930,7 @@ SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 	cbz	x1, 7f
 
 
-/* IAMROOT, 2021.08.07: NO 
+/* IAMROOT, 2021.08.07: 
  * 클리어된값을 cptr에 적용 
  * ZCR_ELx_LEN_MASK == 0x1ff
  * SYS_ZCR_EL2
