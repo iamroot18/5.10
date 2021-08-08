@@ -719,13 +719,15 @@ set_hcr:
  * - SRE: System Register Enable
  *   0x0: Memory-mapped 이용
  *   0x1: GIC 시스템 레지스터 이용
- * - ENABLE: 
- *   0x0: (??)
- *   0x1: EL0의 exception이 EL2가 아닌 EL1에서 처리되도록 함.
- *        해당 trap이 정상적임을 의미(?)
+ *
+ * - ENABLE: EL0에서 ICC_SRE_EL1 reg를 사용하려고 할 때 trap(에러) 발생 여부 의미.
+ *   0x0: Non-secure EL1 accesses to ICC_SRE_EL1 trap to EL2
+ *        EL2로 trap 한다는 의미는 시스템 에러로 판단하고 동작이 안되도록 만듬.
+ *   0x1: Non-secure EL1 accesses to ICC_SRE_EL1 do not trap to EL2
+ *        trap 하지 않는다는 의미는 EL0가 ICC_SRE_EL1에 접근할 수 있음을 의미.
  *
  * - RAO/WI type bit:
- *   해당 bit 값을 항상 1로 읽음
+ *   해당 bit 값을 항상 1로 읽음 (쓰기는 항상 무시)
  */
 	mrs_s	x0, SYS_ICC_SRE_EL2
 	orr	x0, x0, #ICC_SRE_EL2_SRE	// Set ICC_SRE_EL2.SRE==1
