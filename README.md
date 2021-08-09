@@ -65,3 +65,14 @@
 - 2021.07.24, Zoom 온라인(36명 참석)
 - ARM Programmers Guide: ~p161
 - head.S의 el2_setup 진행중
+
+### 10주차
+- 2021.07.31, Zoom 온라인(31명 참석)
+- ARM Programmers Guide: ~p190
+- head.S의 el2_setup 진행중
+
+### 11주차
+- 2021.08.07, Zoom 온라인(26명 참석)
+- ARM Programmers Guide: 완료
+- head.S의 el2_setup 진행중
+
