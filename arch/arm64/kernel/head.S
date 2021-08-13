@@ -616,8 +616,9 @@ SYM_FUNC_START(el2_setup)
 	msr	sctlr_el1, x0
 /*
  * IAMROOT, 2021.07.24:
- * - SCTLR_EL1_RES1: SCTLR 예약 비트 5개
+ * - SCTLR_EL1_RES1: SCTLR 예약 비트(RES1) 5개
  * - ENDIAN_SET_EL1: Endian 설정
+ *   -> CONFIG_CPU_BIG_ENDIAN가 true이면 big endian, 아니면 little endian이다.
  */
 	mov	w0, #BOOT_CPU_MODE_EL1		// This cpu booted in EL1
 
@@ -631,6 +632,13 @@ SYM_FUNC_START(el2_setup)
  */
 	ret
 
+/*
+ * IAMROOT, 2021.08.13:
+ * - 현재 Exception Level은 EL2.
+ * - SCTLR_EL2_RES1: SCTLR 예약 비트(RES1) 9개
+ * - ENDIAN_SET_EL2: Endian 설정
+ *   -> CONFIG_CPU_BIG_ENDIAN가 true이면 big endian, 아니면 little endian이다.
+ */
 1:	mov_q	x0, (SCTLR_EL2_RES1 | ENDIAN_SET_EL2)
 	msr	sctlr_el2, x0
 
@@ -639,7 +647,8 @@ SYM_FUNC_START(el2_setup)
  *   VHE : Virtualization host extensions
  *   이전에는 부팅을 EL2에서 커널 실행은 EL1
  *   VHE는 EL2에서 커널이 실행 됨
- *   사용 목적 kvm 가속을 빠르게 하기 위해서 사용함
+ *   사용 목적은 world switch를 줄임으로써
+ *   kvm 가속을 빠르게 하기 위해서 사용함
  */
 #ifdef CONFIG_ARM64_VHE
 	/*
@@ -651,6 +660,8 @@ SYM_FUNC_START(el2_setup)
  * IAMROOT, 2021. 07. 31:
  * - VHE 기능이 있는지 없는지 확인(x2: 0=none, 1=support)
  * - id registers: 4bit id 필드로 기능에 대한 내용
+ * - VHE 기능이 있으면 x2 = 1.
+ * - VHE 기능이 없으면 x2 = 0.
  */
 	mrs	x2, id_aa64mmfr1_el1
 	ubfx	x2, x2, #ID_AA64MMFR1_VHE_SHIFT, #4
@@ -724,10 +735,16 @@ set_hcr:
  *   0x0: Non-secure EL1 accesses to ICC_SRE_EL1 trap to EL2
  *        EL2로 trap 한다는 의미는 시스템 에러로 판단하고 동작이 안되도록 만듬.
  *   0x1: Non-secure EL1 accesses to ICC_SRE_EL1 do not trap to EL2
- *        trap 하지 않는다는 의미는 EL0가 ICC_SRE_EL1에 접근할 수 있음을 의미.
+ *        trap 하지 않는다는 의미는 EL2가 ICC_SRE_EL1에 접근할 수 있음을 의미.
+ *
+ *   elseif EL2Enabled() && ICC_SRE_EL2.Enable == '0' then
+ *      AArch64.SystemAccessTrap(EL2, 0x18);
+ *   ...
+ *   return ICC_SRE_EL1;
  *
  * - RAO/WI type bit:
  *   해당 bit 값을 항상 1로 읽음 (쓰기는 항상 무시)
+ *   (Read as One, Write Ignored):
  */
 	mrs_s	x0, SYS_ICC_SRE_EL2
 	orr	x0, x0, #ICC_SRE_EL2_SRE	// Set ICC_SRE_EL2.SRE==1
@@ -782,7 +799,25 @@ set_hcr:
  */
 	mrs	x0, midr_el1
 	mrs	x1, mpidr_el1
-/* IAMROOT, 2021.08.07: 위 정보들을 Hypervisor 시스템 레지스터에 저장 */
+/*
+ * IAMROOT, 2021.08.07:
+ * 위 정보들을 Hypervisor 시스템 레지스터에 저장
+ *
+ * Trap을 이용해서 operation을 virtualize하는 것은 많은 비용이 든다.
+ * Feature register들, 예를 들어 ID_AA64MMFR0_EL1 처럼 OS에 의해 자주
+ * 접근되지 않는 레지스터는 크게 상관 없지만 MIDR_EL1, MPIDR_EL1같이
+ * 자주 접근되는 레지스터들에 접근하는 operation들에게는 부담이 된다.
+ *
+ * 이를 개선하기 위해서 Guest OS가 해당 operation을 수행하기 위해서
+ * Hypervisor에 일일이 Trap을 날리기 보다는 virtual value를 보도록
+ * 하는 방법을 사용하기도 한다.
+ *
+ *  VPIDR_EL2: EL1이 MIPDR_EL1을 읽으면 Trap없이 하드웨어가 자동으로
+ *             VPIDR_EL2 값을 돌려준다.
+ *
+ * VMPIDR_EL2: EL1이 MPIPDR_EL1을 읽으면 Trap없이 하드웨어가 자동으로
+ *             VMPIDR_EL2 값을 돌려준다.
+ */
 	msr	vpidr_el2, x0
 	msr	vmpidr_el2, x1
 /* IAMROOT, 2021.08.07:
@@ -798,8 +833,8 @@ set_hcr:
  */
 #ifdef CONFIG_COMPAT
     /* IAMROOT, 2021.08.07:
-     * 32-bit S/W의 경우 CP15를 접근하는 부분이 있으므로 EL2로 trap하는 것을
-     * disable.
+     * 32-bit S/W의 경우 CP15를 접근하는 부분이 있으므로 AARCH32 EL0, EL1이
+     * System Register에 접근할 시 EL2로 trap하는 것을 disable.
      */
 	msr	hstr_el2, xzr			// Disable CP15 traps to EL2
 #endif
@@ -850,11 +885,13 @@ set_hcr:
 	mrs	x1, id_aa64mmfr1_el1
 	ubfx	x0, x1, #ID_AA64MMFR1_LOR_SHIFT, 4
 	cbz	x0, 1f
+    /*
+     * IAMROOT, 2021.08.14
+     * 만약 LORegion Feature가 implement되있으면
+     * LORegion을 disable시킨다.
+     */
 	msr_s	SYS_LORC_EL1, xzr
 1:
-
-
-
 /* IAMROOT, 2021.08.07: 
  * TTBR0_EL2 
  *   하이퍼바이저가 사용
@@ -870,8 +907,8 @@ set_hcr:
 	msr	vttbr_el2, xzr
 
 /* IAMROOT, 2021.08.07: 
- * VHE가 서포트 되는지 않되는지
- * 1: VHE , 0: nVHE
+ * x2: VHE가 서포트 되는지 않되는지
+ *   - 1: VHE, 0: nVHE
  *
  * w0 - x0의 하위 32bit
  * BOOT_CPU_MODE_EL2 == 0xe12
@@ -910,21 +947,26 @@ SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 	msr	sctlr_el1, x0
 
 /* IAMROOT, 2021.08.07: 
- * cptr_el에 0x33ff
+ * cptr_el2에 0x33ff
+ *
  * TFP [10] - 0
+ *   Advanced SIMD, Floating-Point 레지스터에 접근시
  *   0b0: trap이 일어나지 않도록, 0b1: trap이 일어나도록
+ *
  * TZ [8] - 1 (SVE 명령을 사용할 때)
  *   0b0: trap이 일어나지 않도록, 0b1: trap이 일어나도록 
  * 나머지 비트는 RES1을 1로 
+ *
+ * SVE: Scalable Vector Extension
+ * Z: vector registers(Z0, Z1, ...) -> ZCR: control register.
  */
 	/* Coprocessor traps. */
 	mov	x0, #0x33ff
 	msr	cptr_el2, x0			// Disable copro. traps to EL2
 
 /* IAMROOT, 2021.08.07: 
- * SVE가 내장되어 있는지 확인 후 (어차피 없으면 SVE를 사용하는 어플리케이션이  종료됨)
+ * SVE가 내장되어 있는지 확인 후 (어차피 없으면 SVE를 사용하는 어플리케이션이 종료됨)
  * 없다면 branch 
- * cptr_el2의 TZ 클리어 
  */
 	/* SVE register access */
 	mrs	x1, id_aa64pfr0_el1
@@ -933,7 +975,9 @@ SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 
 
 /* IAMROOT, 2021.08.07: 
- * 클리어된값을 cptr에 적용 
+ * cptr_el2의 TZ 클리어
+ * 다시 말하면, SVE가 내장되어 있으면 Trap하지 않고 관련 레지스터를 사용하겠다는 의미.
+ *
  * ZCR_ELx_LEN_MASK == 0x1ff
  * SYS_ZCR_EL2
  *   SVE를 위해 가장 큰 벡터길이로 활성화시킨다

@@ -81,14 +81,42 @@
 #define HCR_VIRT_EXCP_MASK (HCR_VSE | HCR_VI | HCR_VF)
 /*
  * IAMROOT, 2021. 07. 31:
- * pointer authentication : Any attempt to use the Pointer Authentication instructions will
- * result in an UNDEFINED exception being injected into the guest.
- * pointer tagging과 유사
- * RW: 32, 64bit 사용
- * API: instruction 에러 발생시 인트럽트 발생 여부 결정
- * APK: instruction 에러 발생시 인트럽트 발생 여부 결정
- * ATA: Allocation Tags Access 기능 설정
- * TGE: (Trap General Exceptions) VHE를 사용 할 때  EL0서 발생한 exception을 EL2에 routed 시켜줌
+ * - Pointer Authentication : Any attempt to use the Pointer Authentication instructions will
+ *                            result in an UNDEFINED exception being injected into the guest.
+ *                            (pointer tagging과 유사)
+ *
+ * -  RW: 0: EL0, EL1이 모두 AArch32이다.
+ *        1: EL1는 AArch64이다. EL0는 PSTATE.nRW의 값에 의해 결정된다.
+ *           - PSTATE.nRW가 0이면 64bit, 1이면 32bit라는 뜻이다.
+ *
+ * - API: 0: EL1이 Pointer Authentication 관련 instruction 수행시 EL2로 Trap.
+ *        1: Trap 사용 X.
+ *
+ * - APK: 0: EL1이 Pointer Authentication "Key"에 접근시 EL2로 Trap.
+ *        1: Trap 사용 X.
+ *
+ * - ATA: Allocation Tags Access 기능 설정
+ *        0: Allocation Tag 접근 허용.   (EL2로 Trap.)
+ *        1: Allocation Tag 접근 미허용. (EL2로 Trap 안한다.)
+ *
+ *        elsif EL2Enabled() && HCR_EL2.ATA == '0' then
+ *            AArch64.SystemAccessTrap(EL2, 0x18);
+ *
+ * - TGE: (Trap General Exceptions)
+ *        EL0에서 Exception이 발생하면 EL1으로 route되지 않고
+ *        EL2로 route되게 한다. (즉, EL0는 Guest Application이 아닌
+ *                               Host Application이라는 뜻이다.)
+ *
+ *                                HCR-EL2
+ *        Executing in:           E2H            TGE
+ *        Guest kernel (EL1)      1              0
+ *        Guest application (EL0) 1              0
+ *        Host kernel (EL2)       1              1
+ *        Host application (EL0)  1              1
+ *
+ * - E2H: 0: Host OS가 EL2에서 도는 것을 support하지 않는다.
+ *        0: Host OS가 EL2에서 도는 것을 support한다.
+ *
  */
 #define HCR_HOST_NVHE_FLAGS (HCR_RW | HCR_API | HCR_APK | HCR_ATA)
 #define HCR_HOST_VHE_FLAGS (HCR_RW | HCR_TGE | HCR_E2H)
