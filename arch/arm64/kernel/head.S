@@ -164,6 +164,13 @@ pe_header:
 SYM_CODE_START(primary_entry)
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
+/*
+ * IAMROOT, 2021.08.14: 
+ * - nVHE로 동작하는 경우 아래 코드는 EL2->EL1으로 변경된 채 동작한다.
+ *
+ * - 커널 물리주소 위치를 읽어온 후 2M 정렬단위의 하위 offset를 
+ *   x23에 기록한다.
+ */
 	adrp	x23, __PHYS_OFFSET
 	and	x23, x23, MIN_KIMG_ALIGN - 1	// KASLR offset, defaults to 0
 	bl	set_cpu_boot_mode_flag
@@ -991,10 +998,20 @@ SYM_INNER_LABEL(install_el2_stub, SYM_L_LOCAL)
 	msr_s	SYS_ZCR_EL2, x1			// length for EL1.
   
 	/* Hypervisor stub */
+/*
+ * IAMROOT, 2021.08.14: EL2용 하이퍼 벡터 주소를 vbar_el2 레지스터에 기록
+ */
+
 7:	adr_l	x0, __hyp_stub_vectors
 	msr	vbar_el2, x0
 
 	/* spsr */
+/*
+ * IAMROOT, 2021.08.14: EL1으로 돌아갈때 DAIF 플래그들을 모두 설정하여
+ *   인터럽트나 정렬 exception이 발생하지 않도록 막는다.
+ *    - EL1으로 모드 변경 시 사용할 스택은 EL1용 스택이다.
+ */
+
 	mov	x0, #(PSR_F_BIT | PSR_I_BIT | PSR_A_BIT | PSR_D_BIT |\
 		      PSR_MODE_EL1h)
 	msr	spsr_el2, x0
@@ -1006,6 +1023,10 @@ SYM_FUNC_END(el2_setup)
 /*
  * Sets the __boot_cpu_mode flag depending on the CPU boot mode passed
  * in w0. See arch/arm64/include/asm/virt.h for more info.
+ */
+/*
+ * IAMROOT, 2021.08.14: 
+ * - w0로 알아온 부트(el1 or el2) 모드 값을 저장한다.
  */
 SYM_FUNC_START_LOCAL(set_cpu_boot_mode_flag)
 	adr_l	x1, __boot_cpu_mode
@@ -1031,6 +1052,13 @@ SYM_FUNC_END(set_cpu_boot_mode_flag)
  *
  * This is not in .bss, because we set it sufficiently early that the boot-time
  * zeroing of .bss would clobber it.
+ */
+
+/*
+ * IAMROOT, 2021.08.14: 
+ * - 지시어 .long은 4바이트 값이다.
+ *   set_cpu_boot_mode_flag 함수가 아래 값을
+ *   부팅한 모드(el1 or el2) 값으로 동일해지도록 기록한다.
  */
 SYM_DATA_START(__boot_cpu_mode)
 	.long	BOOT_CPU_MODE_EL2
