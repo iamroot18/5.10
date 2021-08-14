@@ -76,3 +76,6 @@
 - ARM Programmers Guide: 완료
 - head.S의 el2_setup 진행중
 
+### 12주차
+- 2021.08.14, Zoom 온라인(27명 참석)
+- head.S의 __create_page_tables의 첫 번째 map_memory 직전 
