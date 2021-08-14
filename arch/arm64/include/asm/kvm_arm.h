@@ -115,7 +115,7 @@
  *        Host application (EL0)  1              1
  *
  * - E2H: 0: Host OS가 EL2에서 도는 것을 support하지 않는다.
- *        0: Host OS가 EL2에서 도는 것을 support한다.
+ *        1: Host OS가 EL2에서 도는 것을 support한다.
  *
  */
 #define HCR_HOST_NVHE_FLAGS (HCR_RW | HCR_API | HCR_APK | HCR_ATA)
