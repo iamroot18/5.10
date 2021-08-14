@@ -389,6 +389,9 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	 * the kernel image, and thus are clean to the PoC per the boot
 	 * protocol.
 	 */
+/*
+ * IAMROOT, 2021.08.14: 커널용 페이지 테이블에 대한 캐시를 모두 invalidate
+ */
 	adrp	x0, init_pg_dir
 	adrp	x1, init_pg_end
 	sub	x1, x1, x0
@@ -397,6 +400,9 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	/*
 	 * Clear the init page tables.
 	 */
+/*
+ * IAMROOT, 2021.08.14: 커널용 페이지 테이블을 0으로 모두 초기화한다.
+ */
 	adrp	x0, init_pg_dir
 	adrp	x1, init_pg_end
 	sub	x1, x1, x0
@@ -407,6 +413,9 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	subs	x1, x1, #64
 	b.ne	1b
 
+/*
+ * IAMROOT, 2021.08.14: 커널 매핑에 필요한 디폴트 속성값을 가져온다.
+ */
 	mov	x7, SWAPPER_MM_MMUFLAGS
 
 	/*
@@ -414,6 +423,15 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	 */
 	adrp	x0, idmap_pg_dir
 	adrp	x3, __idmap_text_start		// __pa(__idmap_text_start)
+
+/*
+ * IAMROOT, 2021.08.14: 
+ * - mmfr2_el1.lva (1=52bits va support, 0=none support(48))
+ *
+ * - 런타임에 64K 페이지 사용 시 최대 52비트 매핑 또는 48비트 매핑을 결정한다.
+ *   -  4K, 48bits -> VA_BITS_MIN=48, vabits_actual=48
+ *   - 64K, 52bits -> VA_BITS_MIN=48, vabits_actual=52(lva support) or 48
+ */
 
 #ifdef CONFIG_ARM64_VA_BITS_52
 	mrs_s	x6, SYS_ID_AA64MMFR2_EL1
@@ -440,6 +458,16 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	 * this number conveniently equals the number of leading zeroes in
 	 * the physical address of __idmap_text_end.
 	 */
+/*
+ * IAMROOT, 2021.08.14: 
+ * - VA 확장이 필요한지 점검한다.
+ *   __idmap_text_end의 주소를 물리주소로 알아와서 이 주소의 선두 비트들이 0인
+ *   개수를 알아와서 TCR_T0SZ(VA_BITS=예:39)=25와 비교한다.
+ *   비교하여 물리 주소에 사용한 0이 더 많은 경우 가상 주소 크기가 충분하다.
+ *   이 경우 가상 주소 영역의 확장이 필요 없으니  1f 레이블로 이동한다.
+ *   확장이 필요한 경우 __idmap_text_end 물리주소에서 산출된 선두 0의 개수를
+ *   idmap_t0sz에 저장한다.
+ */
 	adrp	x5, __idmap_text_end
 	clz	x5, x5
 	cmp	x5, TCR_T0SZ(VA_BITS)	// default T0SZ small enough?

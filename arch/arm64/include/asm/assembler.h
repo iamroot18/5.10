@@ -213,6 +213,16 @@ lr	.req	x30		// link register
 	 * @tmp: mandatory 64-bit scratch register to calculate the address
 	 *       while <src> needs to be preserved.
 	 */
+/*
+ * IAMROOT, 2021.08.14: 
+ * - *sym <- src의 주소
+ *
+ * - 예) str_l   x4, idmap_ptrs_per_pgd, x5
+ *         adrp x5, idmap_ptrs_per_pgd
+ *         str  x4, [x5, :lo12:idmap_ptrs_per_pgd]
+ *
+ *         idmpa_ptrs_per_pgd <- x4 값을 저장
+ */
 	.macro	str_l, src, sym, tmp
 	adrp	\tmp, \sym
 	str	\src, [\tmp, :lo12:\sym]

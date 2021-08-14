@@ -56,6 +56,10 @@
 #define PCI_IO_START		(PCI_IO_END - PCI_IO_SIZE)
 #define FIXADDR_TOP		(PCI_IO_START - SZ_2M)
 
+/*
+ * IAMROOT, 2021.08.14: VA_BITS_MIN: VA 비트가 52인 경우 최소 48까지 사용
+ */
+
 #if VA_BITS > 48
 #define VA_BITS_MIN		(48)
 #else
