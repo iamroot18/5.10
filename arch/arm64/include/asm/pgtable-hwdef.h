@@ -38,12 +38,33 @@
  * Rearranging it a bit we get :
  *   (4 - n) * (PAGE_SHIFT - 3) + 3
  */
+
+/*
+ * IAMROOT, 2021.08.14: 
+ * - 4단계, n=0 -> 39 (PGD 테이블의 SHIFT)
+ * - 4단계, n=1 -> 30 (PUD 테이블의 SHIFT)
+ * - 4단계, n=2 -> 21 (PMD 테이블의 SHIFT)
+ * - 4단계, n=3 -> 12 (PTE 테이블의 SHIFT)
+ */
 #define ARM64_HW_PGTABLE_LEVEL_SHIFT(n)	((PAGE_SHIFT - 3) * (4 - (n)) + 3)
 
+/*
+ * IAMROOT, 2021.08.14: 
+ * 가장 하위 페이지 PTE 테이블에 들어가는 엔트리 수
+ * - 4K -> 512
+ */
 #define PTRS_PER_PTE		(1 << (PAGE_SHIFT - 3))
 
 /*
  * PMD_SHIFT determines the size a level 2 page table entry can map.
+ */
+/*
+ * IAMROOT, 2021.08.14: 
+ * - 아래 모두 4K 기준
+ * - PMD_SHIFT:  PMD에 사용할 SHIFT는 21
+ * - PMD_SIZE:   2M (2^21)
+ * - PMD_MASK:   0b1111 ....   0000000000000 (0 개수가 21개)
+ * - PTRS_PER_PUD: 512개
  */
 #if CONFIG_PGTABLE_LEVELS > 2
 #define PMD_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(2)
@@ -55,6 +76,14 @@
 /*
  * PUD_SHIFT determines the size a level 1 page table entry can map.
  */
+/*
+ * IAMROOT, 2021.08.14: 
+ * - 아래 모두 4K 기준
+ * - PUD_SHIFT:  PUD에 사용할 SHIFT는 30
+ * - PUD_SIZE:   1G (2^30)
+ * - PUD_MASK:   0b1111 ....   0000000000000 (0 개수가 30개)
+ * - PTRS_PER_PUD: 512개
+ */
 #if CONFIG_PGTABLE_LEVELS > 3
 #define PUD_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(1)
 #define PUD_SIZE		(_AC(1, UL) << PUD_SHIFT)
@@ -65,6 +94,14 @@
 /*
  * PGDIR_SHIFT determines the size a top-level page table entry can map
  * (depending on the configuration, this level can be 0, 1 or 2).
+ */
+/*
+ * IAMROOT, 2021.08.14: 
+ * - 아래 모두 4K 기준
+ * - PGDIR_SHIFT:  PGD에 사용할 SHIFT는 39
+ * - PGDIR_SIZE:   512G (2^39)
+ * - PGDIR_MASK:   0b1111 ....   0000000000000 (0 개수가 39개)
+ * - PTRS_PER_PGD: 512개
  */
 #define PGDIR_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(4 - CONFIG_PGTABLE_LEVELS)
 #define PGDIR_SIZE		(_AC(1, UL) << PGDIR_SHIFT)
