@@ -170,6 +170,7 @@ SYM_CODE_START(primary_entry)
  *
  * - 커널 물리주소 위치를 읽어온 후 2M 정렬단위의 하위 offset를 
  *   x23에 기록한다.
+ *   (해당 offset은 __create_page_tables 내에서 사용한다)
  */
 	adrp	x23, __PHYS_OFFSET
 	and	x23, x23, MIN_KIMG_ALIGN - 1	// KASLR offset, defaults to 0
@@ -390,7 +391,15 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	 * protocol.
 	 */
 /*
- * IAMROOT, 2021.08.14: 커널용 페이지 테이블에 대한 캐시를 모두 invalidate
+ * IAMROOT, 2021.08.14:
+ * 커널용 페이지 테이블에 대한 캐시를 모두 invalidate
+ *
+ * - adrp 명령어를 사용한 이유
+ *   init_pg_dir은 link script에 의해 주소가 페이지 크기만큼 정렬된다.
+ *   그러므로 하위 12 bits를 추가로 처리하는 adr_l 대신 adrp 명령어로도
+ *   커버가 가능하다.
+ * - 페이지 크기가 4K가 아니면?
+ *   16K, 64K 모두 4의 배수이므로 4K 페이지 처리 명령어인 adrp로도 가능하다.
  */
 	adrp	x0, init_pg_dir
 	adrp	x1, init_pg_end
@@ -1087,6 +1096,13 @@ SYM_FUNC_END(set_cpu_boot_mode_flag)
  * - 지시어 .long은 4바이트 값이다.
  *   set_cpu_boot_mode_flag 함수가 아래 값을
  *   부팅한 모드(el1 or el2) 값으로 동일해지도록 기록한다.
+ *
+ * - 해당 데이터는 '.mmuoff.data.write' section에 저장되며 아래 C 코드와
+ *   유사한 의미를 가진다. (bss section이 아님에 유의하자)
+ *
+ *   static int __boot_cpu_mode[] = {
+ *      BOOT_CPU_MODE_EL2, BOOT_CPU_MODE_EL1
+ *   };
  */
 SYM_DATA_START(__boot_cpu_mode)
 	.long	BOOT_CPU_MODE_EL2
