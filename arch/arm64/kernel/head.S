@@ -400,6 +400,22 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  *   커버가 가능하다.
  * - 페이지 크기가 4K가 아니면?
  *   16K, 64K 모두 4의 배수이므로 4K 페이지 처리 명령어인 adrp로도 가능하다.
+ *
+ * - arch/arm64/kernel/vmlinux.lds.S
+ *
+ *   . = ALIGN(PAGE_SIZE);
+ *   init_pg_dir = .;
+ *   . += INIT_DIR_SIZE;
+ *   init_pg_end = .;
+ *
+ * - 위에서 보는 것 처럼 init_pg_dir는 PAGE_SIZE로 align되어 있다. 따라서
+ *   adrp 명령어로 주소를 가져올 수 있다. 마찬가지로, init_pg_end의 경우도
+ *   INIT_DIR_SIZE가 PAGE_SIZE의 배수이기 때문에 init_pg_end도 PAGE_SIZE의
+ *   배수가 되므로 adrp 명령어로 주소를 가져올 수 있다.
+ *
+ * - 그러나 아래의 __idmap_text_end의 경우처럼 PAGE_SIZE의 배수가 보장되지
+ *   않는 경우에는 ldr_l 명령어를 사용하여 하위 12 bits까지 가져올 수 있도록
+ *   한다.
  */
 	adrp	x0, init_pg_dir
 	adrp	x1, init_pg_end
@@ -424,6 +440,12 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 
 /*
  * IAMROOT, 2021.08.14: 커널 매핑에 필요한 디폴트 속성값을 가져온다.
+ *
+ * 디폴트 속성값을 요약하면 다음과 같다.
+ * - Normal memory
+ * - Section type
+ * - Access Flag
+ * - Inner Share
  */
 	mov	x7, SWAPPER_MM_MMUFLAGS
 

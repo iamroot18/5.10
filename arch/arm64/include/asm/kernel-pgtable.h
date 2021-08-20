@@ -151,9 +151,27 @@
 /*
  * Initial memory map attributes.
  */
+/*
+ * IAMROOT, 2021.08.21:
+ *
+ * - SWAPPER_PMD_FLAGS
+ *   - PMD_TYPE_SECT: 현재 table entry는 section임을 나타냄.
+ *   - PMD_SECT_AF: Access Flag (Region accessed)
+ *   - PMD_SECT_S: Inner Share
+ */
 #define SWAPPER_PTE_FLAGS	(PTE_TYPE_PAGE | PTE_AF | PTE_SHARED)
 #define SWAPPER_PMD_FLAGS	(PMD_TYPE_SECT | PMD_SECT_AF | PMD_SECT_S)
 
+/*
+ * IAMROOT, 2021.08.21:
+ *
+ * - SWAPPER_MM_MMUFLAGS
+ *   - PMD_ATTRINDX, PTE_ATTRINDX:
+ *       page table entry(== A block or page descriptor)의 필드 중
+ *       Lower Attributes에 속하는 indx[4:2]에 MAIR_EL1의 index를 설정한다.
+ *       indx[4:2]는 memory type을 결정하기 위해 사용된다. 자세한 내용은
+ *       arch/arm64/include/asm/memory.h 에 있는 MT_NORMAL참조.
+ */
 #if ARM64_SWAPPER_USES_SECTION_MAPS
 #define SWAPPER_MM_MMUFLAGS	(PMD_ATTRINDX(MT_NORMAL) | SWAPPER_PMD_FLAGS)
 #else

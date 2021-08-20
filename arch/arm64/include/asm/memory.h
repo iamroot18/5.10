@@ -140,6 +140,22 @@
  *	      the MT_NORMAL_TAGGED memory type for PROT_MTE mappings. Note
  *	      that protection_map[] only contains MT_NORMAL attributes.
  */
+/*
+ * IAMROOT, 2021.08.21:
+ * - MT_X는 MAIR_EL1의 index를 나타낸다. MAIR_EL1은 총 64비트로 이루어져있으며,
+ *   8비트씩 묶었을 때의 index가 아래의 MT_X이다.
+ *
+ * - MAIR_EL1의 index와 값의 mapping 정보는 arch/arm64/mm/proc.S 에서
+ *   MAIR_EL1_SET을 검색해보면 찾을 수 있다.
+ *
+ * - page table entry에 memory type을 직접 넣지 않고 indirect 방식으로
+ *   하는 이유는 page table entry의 비트수를 절약하기 위해서이다.
+ *   page table entry에 memory type을 직접 넣으려면 8비트를 소모해야하는 반면,
+ *   MAIR를 이용해 indirect 방식을 활용하면 index를 선택하기 위한 3비트 만으로
+ *   해결이 가능하다.
+ *
+ * - page table entry는 a block or page descriptor라고도 불린다.
+ */
 #define MT_NORMAL		0
 #define MT_NORMAL_TAGGED	1
 #define MT_NORMAL_NC		2
