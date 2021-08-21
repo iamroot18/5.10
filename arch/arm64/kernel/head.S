@@ -463,7 +463,7 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  *   배수가 되므로 adrp 명령어로 주소를 가져올 수 있다.
  *
  * - 그러나 아래의 __idmap_text_end의 경우처럼 PAGE_SIZE의 배수가 보장되지
- *   않는 경우에는 ldr_l 명령어를 사용하여 하위 12 bits까지 가져올 수 있도록
+ *   않는 경우에는 adr_l 명령어를 사용하여 하위 12 bits까지 가져올 수 있도록
  *   한다.
  */
 	adrp	x0, init_pg_dir
