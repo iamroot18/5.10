@@ -44,7 +44,12 @@
 #else
 #define TCR_KASAN_FLAGS 0
 #endif
-
+/*
+ * IAMROOT, 2021.08.21:
+ *
+ * - memory cache제어에는 여러종류가 있지만 리눅스 커널은 아래 7가지만 define해서
+ *   사용한다.
+ */
 /*
  * Default MAIR_EL1. MT_NORMAL_TAGGED is initially mapped as Normal memory and
  * changed during __cpu_setup to Normal Tagged if the system supports MTE.
@@ -67,7 +72,7 @@
  * This must be kept in sync with struct cpu_suspend_ctx in <asm/suspend.h>.
  */
 SYM_FUNC_START(cpu_do_suspend)
-	mrs	x2, tpidr_el0
+	mrs	x2, tpidr_el0만
 	mrs	x3, tpidrro_el0
 	mrs	x4, contextidr_el1
 	mrs	x5, osdlr_el1
@@ -410,15 +415,42 @@ SYM_FUNC_END(idmap_kpti_install_ng_mappings)
  */
 	.pushsection ".idmap.text", "awx"
 SYM_FUNC_START(__cpu_setup)
+/*
+ * IAMROOT, 2021.08.21:
+ * - tlbi : Translation Lookaside Buffer Invalidate
+ *   vmall + el1
+ *   vm : 현재 운영체제
+ *   all : stage1의 모든 TLB Cache  || alls12: stage1, stage2의 모든 tlb cache
+ *   el1 : 현재 level
+ *   vmall : 즉 현재 운영체제 해당하는 stage1의 모든 TLB Cache를 지운다는뜻.
+ *
+ *   ---
+ *
+ * - Program Ref p165
+ *   ASID : 특정 ASID에 해당하는 tlb를 지운다는듯.
+ *   VA : ASID + VA
+ *   VAA : any ASID + VA
+ *   - VMALLE1 TLB invalidate by VMID, All at stage 1, EL1
+ *
+ *   ---
+ */
 	tlbi	vmalle1				// Invalidate local TLB
 	dsb	nsh
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - cpacr.fpen : floating point사용시 trap을 off한다는, 즉 사용하겠다는것.
+ */
 	mov	x1, #3 << 20
 	msr	cpacr_el1, x1			// Enable FP/ASIMD
 	mov	x1, #1 << 12			// Reset mdscr_el1 and disable
 	msr	mdscr_el1, x1			// access to the DCC from EL0
 	isb					// Unmask debug exceptions now,
 	enable_dbg				// since this is per-cpu
+/*
+ * IAMROOT, 2021.08.21:
+ * - PMU (Performance Monitors), AMU (Activity Monitors)
+ *  https://developer.arm.com/documentation/ka004659/latest
+ */
 	reset_pmuserenr_el0 x1			// Disable PMU access from EL0
 	reset_amuserenr_el0 x1			// Disable AMU access from EL0
 
@@ -436,10 +468,21 @@ SYM_FUNC_START(__cpu_setup)
 	cmp	x10, #ID_AA64PFR1_MTE
 	b.lt	1f
 
+/*
+ * IAMROOT, 2021.08.21:
+ * - MTE를 사용하라고 CONFIG가 되있고, 해당 아키텍처가 MTE를 지원한다면.
+ *   위 MAIR_EL1_SET에서 TAG에 해당하는 MEMORY ATTRIBUTE가 TAG를 사용안하도록 설정이 되잇엇는데
+ *   이것을 TAG 속성이 되도록 갈아치우는 동작을 수행한다.
+ */
 	/* Normal Tagged memory type at the corresponding MAIR index */
 	mov	x10, #MAIR_ATTR_NORMAL_TAGGED
 	bfi	x5, x10, #(8 *  MT_NORMAL_TAGGED), #8
-
+/*
+ * IAMROOT, 2021.08.21:
+ * GCR_EL1 : Tag Control Register.
+ * TFSR_EL1 : Holds accumulated Tag Check Faults occurring in EL1 that are not taken precisely.
+ * TFSRE0_EL1 : Holds accumulated Tag Check Faults occurring in EL0 that are not taken precisely.
+ */
 	/* initialize GCR_EL1: all non-zero tags excluded by default */
 	mov	x10, #(SYS_GCR_EL1_RRND | SYS_GCR_EL1_EXCL_MASK)
 	msr_s	SYS_GCR_EL1, x10
@@ -457,6 +500,10 @@ SYM_FUNC_START(__cpu_setup)
 	mov_q	x10, TCR_TxSZ(VA_BITS) | TCR_CACHE_FLAGS | TCR_SMP_FLAGS | \
 			TCR_TG_FLAGS | TCR_KASLR_FLAGS | TCR_ASID16 | \
 			TCR_TBI0 | TCR_A1 | TCR_KASAN_FLAGS
+/*
+ * IAMROOT, 2021.08.21:
+ * - Fujitsu-A64FX 라는 슈퍼컴퓨터에서 문제가 생겨 보완한 코드
+ */
 	tcr_clear_errata_bits x10, x9, x5
 
 #ifdef CONFIG_ARM64_VA_BITS_52

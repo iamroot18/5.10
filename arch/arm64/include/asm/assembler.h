@@ -442,7 +442,11 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	dsb	ish
 	isb
 	.endm
-
+/*
+ * IAMROOT, 2021.08.21:
+ * -id_aa64dfr0_el1.PMUVer : PMv3버전보다 작으면 pass, 크면
+ *  pmuserenr_el0를 0으로 초기화한다.
+ */
 /*
  * reset_pmuserenr_el0 - reset PMUSERENR_EL0 if PMUv3 present
  */
@@ -597,6 +601,36 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	mov	\ttbr, \phys
 #endif
 	.endm
+/*
+ * IAMROOT, 2021.08.21:
+ *
+ * ARM Ref p2448 Page, 64KB granule 참고.
+ * ---
+ * - CONFIG_ARM64_PA_BITS_52인 경우에는
+ * pte = phys | (phys >> 36)
+ * pte &= PTE_ADDR_MASK;
+ *
+ * ---
+ *
+ * (phys | phys >> 36) & PTE_ADDR_MASK
+ * 
+ * ---
+ *
+ * 52 bit system 은 PA 중 [51:16] 이 유용한 주소공간이고,
+ * 이를 48bit system 처럼 [47:12] 로 사용하기 위해
+ * [51:48]을 >> 36 한 뒤 [15:12] 으로 만들어 [47:12] 만큼 Masking하여 사용
+ *
+ * ---
+ *
+ * 52bit 인경우 page는 64k aligned 되있으므로
+ * [51:16] 까지만 사용중이고 Ref menual에 보면
+ *
+ * If ARMv8.2-LPA is implemented, bits[15:12] are bits[51:48] and bits[47:16] are
+ * bits[47:16] of the output address for a page of memory.
+ * 
+ * 이라는 내용이 있다. 즉 [51:16]을 사용하고 있는데 mapping은 [47:12]를 써야되므로
+ * 47의 뒤인 [51:48]을 [16:12]로 이동시키기 위함이다.
+ */
 
 	.macro	phys_to_pte, pte, phys
 #ifdef CONFIG_ARM64_PA_BITS_52

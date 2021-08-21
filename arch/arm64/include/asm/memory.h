@@ -40,6 +40,27 @@
  * KIMAGE_VADDR - the virtual address of the start of the kernel image.
  * VA_BITS - the maximum number of bits for virtual addresses.
  */
+/*
+ * IAMROOT, 2021.08.21:
+ * 
+ * KASAN_SHADOW_END (_PAGE_END(VA_BITS_MIN) == 4_PAGE_END(48))
+ *  => 0xffff_8000_0000_0000 => 이 공간의 크기가 256TB
+ * -----------
+ * BPF_JIT_REGION_START
+ * BPF_JIT_REGION_SIZE (SZ_128M)
+ * BPF_JIT_REGION_END
+ * ------------
+ * MODULES_VADDR
+ *  MODULES_VSIZE (SZ_128M)
+ * MODULES_END
+ * -------------
+ * KIMAGE_VADDR
+ *  => 0xffff_8000_0000_0000 + 0x1000_0000
+ *  => 0xffff_8000_1000_0000
+ *  여기에 추가로 runtime에 randomize가 들어갈수있다.
+ *
+ *  ============
+ */
 #define VA_BITS			(CONFIG_ARM64_VA_BITS)
 #define _PAGE_OFFSET(va)	(-(UL(1) << (va)))
 #define PAGE_OFFSET		(_PAGE_OFFSET(VA_BITS))
@@ -66,6 +87,15 @@
 #define VA_BITS_MIN		(VA_BITS)
 #endif
 
+/*
+ * IAMROOT, 2021.08.21:
+ * 해당 bit의 마지막 주소를 page 크기(마지막 주소)를 계산한다.
+ * va == 48인 경우 => -2^(48 - 1) => 0xffff_8000_0000_0000
+ *
+ * 2^47 = 0x8000_0000_0000
+ * -(2^47) = -0x8000_0000_0000 = 0xffff_7fff_ffff_ffff + 1
+ *  => 0xffff_8000_0000_0000 => 이 공간의 크기가 256TB
+ */
 #define _PAGE_END(va)		(-(UL(1) << ((va) - 1)))
 
 /*
@@ -75,7 +105,10 @@
 
 #define KERNEL_START		_text
 #define KERNEL_END		_end
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - KASAN은 안쓴다고 가정. runtime memory debugger.
+ */
 /*
  * Generic and tag-based KASAN require 1/8th and 1/16th of the kernel virtual
  * address space for the shadow region respectively. They can bloat the stack

@@ -183,7 +183,23 @@
 #define PTE_CONT		(_AT(pteval_t, 1) << 52)	/* Contiguous range */
 #define PTE_PXN			(_AT(pteval_t, 1) << 53)	/* Privileged XN */
 #define PTE_UXN			(_AT(pteval_t, 1) << 54)	/* User XN */
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - PTE_ADDR_LOW
+ *   1 << (48 - PAGE_SHIFT) 를 하고 1을 빼고 , PAGE_SHIFT만큼 shift를 한다.
+ *   즉 하위 SECTION_SHIFT만큼을 제외한 나머지 bit를 1로 하겠다는 뜻
+ *   ex) PAGE_SHIFT == 12 일때
+ *   1 << (48 - 12) = 1 << 36
+ *   (1 << 36) - 1 = 0x10_0000_0000 - 1 = 0x0f_ffff_ffff
+ *   0x0f_ffff_ffff << PAGE_SHIFT(12) > 0xf_fff_ffff_000
+ *
+ * - PTE_ADDR_HIGH
+ *   이건 그냥 0xf000
+ *
+ * ---
+ *
+ *   즉 두개를 OR하면 0xff....ffff_f000
+ */
 #define PTE_ADDR_LOW		(((_AT(pteval_t, 1) << (48 - PAGE_SHIFT)) - 1) << PAGE_SHIFT)
 #ifdef CONFIG_ARM64_PA_BITS_52
 #define PTE_ADDR_HIGH		(_AT(pteval_t, 0xf) << 12)
@@ -218,6 +234,10 @@
 #define TCR_T1SZ_OFFSET		16
 #define TCR_T0SZ(x)		((UL(64) - (x)) << TCR_T0SZ_OFFSET)
 #define TCR_T1SZ(x)		((UL(64) - (x)) << TCR_T1SZ_OFFSET)
+/*
+ * IAMROOT, 2021.08.21:
+ * - TCR_T0SZ와 TCR_T1SZ두개의 사이즈 전부 OR로해서 가져오는 역할
+ */
 #define TCR_TxSZ(x)		(TCR_T0SZ(x) | TCR_T1SZ(x))
 #define TCR_TxSZ_WIDTH		6
 #define TCR_T0SZ_MASK		(((UL(1) << TCR_TxSZ_WIDTH) - 1) << TCR_T0SZ_OFFSET)

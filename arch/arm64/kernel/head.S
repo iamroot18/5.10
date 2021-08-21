@@ -171,6 +171,9 @@ SYM_CODE_START(primary_entry)
  * - 커널 물리주소 위치를 읽어온 후 2M 정렬단위의 하위 offset를 
  *   x23에 기록한다.
  *   (해당 offset은 __create_page_tables 내에서 사용한다)
+ 
+ * ----
+ *   TCR : Table Control Register
  */
 	adrp	x23, __PHYS_OFFSET
 	and	x23, x23, MIN_KIMG_ALIGN - 1	// KASLR offset, defaults to 0
@@ -267,7 +270,16 @@ SYM_CODE_END(preserve_boot_args)
 	str	\tmp2, [\tbl, \tmp1, lsl #3]
 	add	\tbl, \tbl, #PAGE_SIZE		// next level table page
 	.endm
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - compute_indices에서 구해온 index를 가지고,
+ * 해당 table entry에 해당하는 물리주소(rtbl)의 속성을 더하고 각 table entry에 mapping하는
+ * 역할을 수행한다.
+ *
+ * b.ls : unsgiend less or same
+ * @의 의미 : macro에서 branch가 필요할경우 일반 분기문처럼 tag를 지정해줘야되는데 macro에서는
+ * 그렇게 하질 못하므로 compile가 자동으로 tag의 번호를 생성해주게 한다.
+ */
 /*
  * Macro to populate page table entries, these entries can be pointers to the next level
  * or last level entries pointing to physical memory.
@@ -294,6 +306,27 @@ SYM_CODE_END(preserve_boot_args)
 	b.ls	.Lpe\@
 	.endm
 
+/*
+ * IAMROOT, 2021.08.21:
+ * - macro에 들어온 table의 vstart, vend의 범위와 shift, ptrs를 가지ㅏ고
+ *   istart, iend의 index값과 해당 table의 count를 계산한다.
+ *   count는 실제 개수보다 1이 작은 값이 된다.
+ *
+ *   ---
+ *   ptrs
+ *   
+ *   - PGD table : entry 값이 0이 나옴.
+ *   istart = (vstart >> 39) & (0x1ff)
+ *   iend = (vend >> 39) & (0x1ff)
+ *   count = iend - istart
+ *
+ *   table 크기가 작기때문에 보통 한개가 나옴.
+ *
+ *   - PUD table : shift 39값을 30으로 치환해서 계산. 역시 1개의 entry만 나옴
+ *   - PMD table : shift를 21값으로 치환해서 계산. 2MB 범위 이므로 여러개가 나올수있음.
+ *
+ *   그래서 해당 table의 istart, iend, count의 계산 결과 값이 나온다.
+ */
 /*
  * Compute indices of table entries from virtual address range. If multiple entries
  * were needed in the previous page table level then the next page table level is assumed
@@ -329,7 +362,23 @@ SYM_CODE_END(preserve_boot_args)
 
 	sub	\count, \iend, \istart
 	.endm
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - 가상메모리 범위의 page table level의 entry를 초기화 한다.
+ *   현재 SWAPPER_PGTABLE_LEVELS은 3이므로 PGD, PMD, PTE만을 초기화 하게 된다.
+ *   실제로는 PGD, PUD, PMD이지만 code의 통일성을 위해 PGD, PMD, PTE로 되어있다.
+ *
+ *   code(실제) | shift
+ *   ---------------
+ *   PGD(PGD)   : 39
+ *   PMD(PUD)   : 30
+ *   PTE(PMD)   : 21
+ *
+ *   bic : bic A, B, #C ==> A = (B & ~C)
+ *
+ *   PTE을 봣을때 다른것과 다르게 compute_indices와 populate_entries사이에
+ *   bic를 수행하는데 혹시 모르니 2MB align을 맞추기 위한 것으로 보인다.
+ */
 /*
  * Map memory for specified virtual address range. Each level of page table needed supports
  * multiple entries. If a level requires n entries the next page table level is assumed to be
@@ -508,7 +557,15 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	str	x5, [x6]
 	dmb	sy
 	dc	ivac, x6		// Invalidate potentially stale cache line
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - VA < 48
+ *   table table level 을 확장.
+ * - VA >= 48
+ *   table table을 늘리기만 하는데 PGD table을
+ *   PHYS_MASK_SHIFT - PGDIR_SHIFT만큼 늘렸다.
+ *   (48 - 39 = 2^9 = 512)
+ */
 #if (VA_BITS < 48)
 #define EXTRA_SHIFT	(PGDIR_SHIFT + PAGE_SHIFT - 3)
 #define EXTRA_PTRS	(1 << (PHYS_MASK_SHIFT - EXTRA_SHIFT))
@@ -535,12 +592,47 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	str_l	x4, idmap_ptrs_per_pgd, x5
 #endif
 1:
+
 	ldr_l	x4, idmap_ptrs_per_pgd
 	mov	x5, x3				// __pa(__idmap_text_start)
 	adr_l	x6, __idmap_text_end		// __pa(__idmap_text_end)
-
+/*
+ * IAMROOT, 2021.08.21:
+ *   ---
+ *   .macro map_memory, tbl, rtbl, vstart, vend, flags, phys, pgds,
+ *   istart, iend, tmp, count, sv
+ *
+ *   idmap은 va == pa라는것을 유념
+ *
+ *         | dir | corrupt  | idmap                       | init_pg_dir
+ *  tbl    | i/o | corrupt  | x0 : pa(idmap_pg_dir)       | x0 : pa(init_pg_dir)
+ *  rtbl   | o   | corrupt  | x1 : temp register          | x1 : temp register
+ *  vstart | i   | preserve | x3 : pa(__idmap_text_start) | x5 : va(KIMAGE_VADDR + KASLR)
+ *  vend   | i   | preserve | x6 : pa(__idmap_text_end)   | x6 : va(_end)
+ *  flags  | i   | preserve | x7 : SWAPPER_MM_MMUFLAGS
+ *  phys   | i   | preserve | x3 := vstart                | x3 : pa(_text)
+ *  pgds   | i   | preserve | x4 : idmap_ptrs_per_pgd     | x4 : PTRS_PER_PGD
+ *  ---------------------------------------------------------------------------
+ *  istart | o   | corrupt  | x10 : vstart에 대응하는 table index
+ *  iend   | o   | corrupt  | x11 : vend에 대응하는 table index
+ *  tmp    | o   | corrupt  | x12 : 내부 계산용
+ *  count  | io  | corrupt  | x13 : extra count(iend - istart)
+ *  sv     | o   | corrupt  | x14 : 내부 계산용
+ *
+ *   x10부터는 temp register.
+ *   ---
+ *
+ * - idmap table 크기와 init_pg_dir table크기를 집고 넘어가보면
+ *   둘다 compile time에 크기 정해지고 idmap table이 init_pg_dir에 비해
+ *   상대적으로 작은 size를 가진다.
+ */
 	map_memory x0, x1, x3, x6, x7, x3, x4, x10, x11, x12, x13, x14
 
+/*
+ * IAMROOT, 2021.08.21:
+ * x0
+ * - KIMAGE_VADDR :
+ */
 	/*
 	 * Map the kernel image (starting with PHYS_OFFSET).
 	 */
@@ -548,20 +640,38 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	mov_q	x5, KIMAGE_VADDR		// compile time __va(_text)
 	add	x5, x5, x23			// add KASLR displacement
 	mov	x4, PTRS_PER_PGD
+/*
+ * IAMROOT, 2021.08.21:
+ * - kernel의 가상주소의 vend를 구해야한다.
+ *   vstart는 바로위 코드 x5를 통해 구했고.
+ *   _end(가상주소)를 x6으로 adrp를 통해 물리 주소를 알아온다.
+ *   _text(가상주소)를 x3으로 adrp를 통해 물리 주소로 알아온다.
+ *   x3과 x6의 차이는 kernel이미지의 크기이미지이므로,
+ *   kernel 가상주소 start은 x5에 해당 크기를 더하면
+ *   kernel 가상주소의 end값이 구해진다.(x6)
+ */
 	adrp	x6, _end			// runtime __pa(_end)
 	adrp	x3, _text			// runtime __pa(_text)
 	sub	x6, x6, x3			// _end - _text
 	add	x6, x6, x5			// runtime __va(_end)
 
 	map_memory x0, x1, x5, x6, x7, x3, x4, x10, x11, x12, x13, x14
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - 위에 명령어들은 결국 load/store이고 해당 명령어들이 전부 완료되게
+ *   알려주는 역할
+ */
 	/*
 	 * Since the page tables have been populated with non-cacheable
 	 * accesses (MMU disabled), invalidate those tables again to
 	 * remove any speculatively loaded cache lines.
 	 */
 	dmb	sy
-
+/*
+ * IAMROOT, 2021.08.21:
+ * - 위에서 memory mapping을 다했으므로 해당 memory의 cache를 전부 한번
+ *   정리해주는 코드
+ */
 	adrp	x0, idmap_pg_dir
 	adrp	x1, idmap_pg_end
 	sub	x1, x1, x0
