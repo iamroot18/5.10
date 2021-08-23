@@ -72,7 +72,7 @@
  * This must be kept in sync with struct cpu_suspend_ctx in <asm/suspend.h>.
  */
 SYM_FUNC_START(cpu_do_suspend)
-	mrs	x2, tpidr_el0만
+	mrs	x2, tpidr_el0
 	mrs	x3, tpidrro_el0
 	mrs	x4, contextidr_el1
 	mrs	x5, osdlr_el1
