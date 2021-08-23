@@ -308,19 +308,18 @@ SYM_CODE_END(preserve_boot_args)
 
 /*
  * IAMROOT, 2021.08.21:
- * - macro에 들어온 table의 vstart, vend의 범위와 shift, ptrs를 가지ㅏ고
+ * - macro에 들어온 table의 vstart, vend의 범위와 shift, ptrs를 가지고
  *   istart, iend의 index값과 해당 table의 count를 계산한다.
- *   count는 실제 개수보다 1이 작은 값이 된다.
+ *   count는 실제 entry의 개수보다 1이 작은 값이 된다.
  *
  *   ---
  *   ptrs
  *   
- *   - PGD table : entry 값이 0이 나옴.
- *   istart = (vstart >> 39) & (0x1ff)
- *   iend = (vend >> 39) & (0x1ff)
- *   count = iend - istart
- *
- *   table 크기가 작기때문에 보통 한개가 나옴.
+ *   - PGD table : entry 값 (count + 1) 이 1이 나옴.
+ *       istart = (vstart >> 39) & (0x1ff)
+ *       iend = (vend >> 39) & (0x1ff)
+ *       count = iend - istart = 0
+ *       table 크기가 작기때문에 보통 entry 값이 한개가 나옴.
  *
  *   - PUD table : shift 39값을 30으로 치환해서 계산. 역시 1개의 entry만 나옴
  *   - PMD table : shift를 21값으로 치환해서 계산. 2MB 범위 이므로 여러개가 나올수있음.
@@ -397,6 +396,12 @@ SYM_CODE_END(preserve_boot_args)
  * Corrupts:	tbl, rtbl, istart, iend, tmp, count, sv
  */
 	.macro map_memory, tbl, rtbl, vstart, vend, flags, phys, pgds, istart, iend, tmp, count, sv
+/*
+ * IAMROOT, 2021.08.24:
+ * PGD->PUD(or PMD, when SWAPPER_PGTABLE_LEVELS <= 3) 매핑 시작.
+ * PGD, PUD, PMD의 flags가 전부 PMD_TYPE_TABLE 인 것에 주목.
+ * 해당 page table entry는 section (실제 값)이 아니라 table이라는 것을 나타낸다.
+ */
 	add \rtbl, \tbl, #PAGE_SIZE
 	mov \sv, \rtbl
 	mov \count, #0
@@ -405,6 +410,10 @@ SYM_CODE_END(preserve_boot_args)
 	mov \tbl, \sv
 	mov \sv, \rtbl
 
+/*
+ * IAMROOT, 2021.08.24:
+ * PUD->PMD 매핑 시작.
+ */
 #if SWAPPER_PGTABLE_LEVELS > 3
 	compute_indices \vstart, \vend, #PUD_SHIFT, #PTRS_PER_PUD, \istart, \iend, \count
 	populate_entries \tbl, \rtbl, \istart, \iend, #PMD_TYPE_TABLE, #PAGE_SIZE, \tmp
@@ -412,12 +421,22 @@ SYM_CODE_END(preserve_boot_args)
 	mov \sv, \rtbl
 #endif
 
+/*
+ * IAMROOT, 2021.08.24:
+ * PMD->PTE 매핑 시작.
+ */
 #if SWAPPER_PGTABLE_LEVELS > 2
 	compute_indices \vstart, \vend, #SWAPPER_TABLE_SHIFT, #PTRS_PER_PMD, \istart, \iend, \count
 	populate_entries \tbl, \rtbl, \istart, \iend, #PMD_TYPE_TABLE, #PAGE_SIZE, \tmp
 	mov \tbl, \sv
 #endif
 
+/*
+ * IAMROOT, 2021.08.24:
+ * PTE->Section 매핑 시작.
+ * flags에 SWAPPER_MM_MMUFLAGS가 들어가는 것에 주목.
+ * SWAPPER_MM_MMUFLAGS는 section type이다.
+ */
 	compute_indices \vstart, \vend, #SWAPPER_BLOCK_SHIFT, #PTRS_PER_PTE, \istart, \iend, \count
 	bic \count, \phys, #SWAPPER_BLOCK_SIZE - 1
 	populate_entries \tbl, \count, \istart, \iend, \flags, #SWAPPER_BLOCK_SIZE, \tmp
@@ -604,14 +623,14 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  *
  *   idmap은 va == pa라는것을 유념
  *
- *         | dir | corrupt  | idmap                       | init_pg_dir
- *  tbl    | i/o | corrupt  | x0 : pa(idmap_pg_dir)       | x0 : pa(init_pg_dir)
- *  rtbl   | o   | corrupt  | x1 : temp register          | x1 : temp register
- *  vstart | i   | preserve | x3 : pa(__idmap_text_start) | x5 : va(KIMAGE_VADDR + KASLR)
- *  vend   | i   | preserve | x6 : pa(__idmap_text_end)   | x6 : va(_end)
+ *         | dir | corrupt  | idmap                         | init_pg_dir
+ *  tbl    | i/o | corrupt  | x0 : __pa(idmap_pg_dir)       | x0 : __pa(init_pg_dir)
+ *  rtbl   | o   | corrupt  | x1 : temp register            | x1 : temp register
+ *  vstart | i   | preserve | x3 : __pa(__idmap_text_start) | x5 : __va(_text)(= KIMAGE_VADDR) + KASLR
+ *  vend   | i   | preserve | x6 : __pa(__idmap_text_end)   | x6 : __va(_end)
  *  flags  | i   | preserve | x7 : SWAPPER_MM_MMUFLAGS
- *  phys   | i   | preserve | x3 := vstart                | x3 : pa(_text)
- *  pgds   | i   | preserve | x4 : idmap_ptrs_per_pgd     | x4 : PTRS_PER_PGD
+ *  phys   | i   | preserve | x3 : __pa(__idmap_text_start) | x3 : __pa(_text)
+ *  pgds   | i   | preserve | x4 : idmap_ptrs_per_pgd       | x4 : PTRS_PER_PGD
  *  ---------------------------------------------------------------------------
  *  istart | o   | corrupt  | x10 : vstart에 대응하는 table index
  *  iend   | o   | corrupt  | x11 : vend에 대응하는 table index
@@ -626,13 +645,21 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  *   둘다 compile time에 크기 정해지고 idmap table이 init_pg_dir에 비해
  *   상대적으로 작은 size를 가진다.
  */
+/*
+ * IAMROOT, 2021.08.24:
+ * Identity Mapping 시작.
+ *
+ * x0: __pa(idmap_pg_dir)
+ * x1: temp register
+ * x3: __pa(__idmap_text_start)
+ * x6: __pa(__idmap_text_end)
+ * x7: SWAPPER_MM_MMUFLAGS
+ * x3: __pa(__idmap_text_start)
+ * x4: idmap_ptrs_per_pgd
+ * x10 ~ x14: temp register
+ */
 	map_memory x0, x1, x3, x6, x7, x3, x4, x10, x11, x12, x13, x14
 
-/*
- * IAMROOT, 2021.08.21:
- * x0
- * - KIMAGE_VADDR :
- */
 	/*
 	 * Map the kernel image (starting with PHYS_OFFSET).
 	 */
@@ -655,6 +682,19 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	sub	x6, x6, x3			// _end - _text
 	add	x6, x6, x5			// runtime __va(_end)
 
+/*
+ * IAMROOT, 2021.08.24:
+ * Linear Mapping 시작.
+ *
+ * x0: __pa(init_pg_dir)
+ * x1: temp register
+ * x5: __va(_text)
+ * x6: __va(_end)
+ * x7: SWAPPER_MM_MMUFLAGS
+ * x3: __pa(_text)
+ * x4: PTRS_PER_PGD
+ * x10 ~ x14: temp register
+ */
 	map_memory x0, x1, x5, x6, x7, x3, x4, x10, x11, x12, x13, x14
 /*
  * IAMROOT, 2021.08.21:
