@@ -493,6 +493,41 @@ SYM_FUNC_START(__cpu_setup)
 1:
 #endif
 	msr	mair_el1, x5
+
+/*
+ * IAMROOT, 2021.08.24:
+ *
+ * tcr_el1 register를 크게 보면 다음과 같다.
+ *
+ * [0:15], [16:31] : t0, t1에 대한 설정이 16bit를 기준으로 나눠져있다.
+ * [32:63] : t0, t1에 대한 설정이 연속된 비트로 이뤄져있다.
+ *
+ *  [0:31]
+ * ------------------------------
+ *
+ * - TCR_TxSZ(VA_BITS)[TCR_EL1.T0SZ, TCR_EL1.T1SZ] = 16씩 set 될것이다.
+ *
+ * - TCR_CACHE_FLAGS[TCR_EL1.IRGN0, TCR_EL1.IRGN1, TCR_EL1.ORGN0, TCR_EL1.ORGN1]
+ *                  = Cache를 Inner/Outer 모두 WBWA로 설정.
+ *
+ * - TCR_SMP_FLAGS[TCR_EL1.SH0, TCR_EL1.SH1] = Inner Shareable로 설정.
+ *
+ * - TCR_TG_FLAGS[TCR_EL1.TG0, TCR_EL1.TG] = TTBR0_EL1, TTBR1_EL1의 Granule size.
+ *
+ * [32:63]
+ * ------------------------------
+ *  
+ * - TCR_KASLR_FLAGS[TCR_EL1.NFD1] = KASLR Config가 set되있을때만 설정을 한다.
+ *
+ * - TCR_ASID16[TCR_EL1.AS] = ASID Size에 대한 설정이며 16bit로 사용한다는것.
+ *
+ * - TCR_TBI0[TCR_EL1.TBI0] = TTBR0_EL1 Address 계산시 Top byte를 무시하겠다는것.
+ *
+ * - TCR_A1[TCR_EL1.A1] = TTBR1_EL1.ASID를 사용하겠다는것.
+ * - TCR_KASAN_FLAGS[TCR_EL1.TCR_TBI1] = KASAN Config 사용시
+ *		TTBR1_EL1 Address 계산시 Top byte를 무시하겠다는것. KASAN을 사용할려면
+ *		Top Byte가 무시되게 해야된다고 Config 설명에 나와있다.
+ */
 	/*
 	 * Set/prepare TCR and TTBR. We use 512GB (39-bit) address range for
 	 * both user and kernel.
