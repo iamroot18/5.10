@@ -628,6 +628,42 @@
 			 ENDIAN_SET_EL1 | SCTLR_EL1_UCI  | SCTLR_EL1_RES1)
 
 /* MAIR_ELx memory attributes (used by Linux) */
+/*
+ * IAMROOT, 2021.08.24:
+ *   0b0000_dd00. 즉 2,3번째 bit dd를 제외한 나머지 bit가 0이면 device memory
+ *   dd에 따라서 세분화된다.
+ *
+ * - MAIR_ATTR_DEVICE_nGnRnE		UL(0x00) == 0b0000_0000
+ *   0b0000_dd00 = Device Memory
+ *   0bXXXX_00XX = Device-nGnRnE memory
+ *
+ * - MAIR_ATTR_DEVICE_nGnRE		UL(0x04) == 0b0000_0100
+ *   0b0000_dd00 = Device Memory
+ *   0bXXXX_01XX = Device-nGnRE memory
+ *
+ * - MAIR_ATTR_DEVICE_GRE		UL(0x0c) == 0b0000_1100
+ *   0b0000_dd00 = Device Memory
+ *   0bXXXX_11XX = Device-nGnRE memory
+ *
+ * 0booooiiii, (oooo != 0000 and iiii != 0000)는 normal memory라는것을 고려
+ *
+ * - MAIR_ATTR_NORMAL_NC		UL(0x44) = 0b0100_0100
+ *   oooo = 0100, iiii = 0100
+ *   Normal Memory, Outer/Inner Non-cacheable
+ *
+ * - MAIR_ATTR_NORMAL_WT		UL(0xbb) = 0b1011_1011
+ *   oooo = 1011, iiii = 1011
+ *   Normal Memory, Outer/Inner Write-Through, R/W-Allocate Non-transient
+ *
+ * - MAIR_ATTR_NORMAL_TAGGED		UL(0xf0) = 0b1111_0000
+ *   oooo = 1111, iiii = 0000
+ *   FEAT_MTE2가 구현되있으면 Normal Memory.
+ *   Outer/Inner Write-Through, R/W-Allocate Non-transient
+ *
+ * - MAIR_ATTR_NORMAL		UL(0xff) = 0b1111_1111
+ *   oooo = 1111, iiii = 1111,
+ *   Normal Memory, Write-Back, R/W-Allocate Non-transient
+ */
 #define MAIR_ATTR_DEVICE_nGnRnE		UL(0x00)
 #define MAIR_ATTR_DEVICE_nGnRE		UL(0x04)
 #define MAIR_ATTR_DEVICE_GRE		UL(0x0c)
