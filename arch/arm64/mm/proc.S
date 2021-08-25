@@ -505,12 +505,16 @@ SYM_FUNC_START(__cpu_setup)
  *  [0:31]
  * ------------------------------
  *
- * - TCR_TxSZ(VA_BITS)[TCR_EL1.T0SZ, TCR_EL1.T1SZ] = 16씩 set 될것이다.
+ * - TCR_TxSZ(VA_BITS)[TCR_EL1.T0SZ, TCR_EL1.T1SZ]
+ *	= 16씩 set 될것이다. 여기선 default로만 VA_BITS가 48이라는 가정하에
+ *	설정하는 모양세이며 바로 뒤에 head.S에서 설정했던 vabits_actual/idmap_t0sz를
+ *	사용해 다시 설정한다.
  *
  * - TCR_CACHE_FLAGS[TCR_EL1.IRGN0, TCR_EL1.IRGN1, TCR_EL1.ORGN0, TCR_EL1.ORGN1]
- *                  = Cache를 Inner/Outer 모두 WBWA로 설정.
+ *	= Cache를 Inner/Outer 모두 WBWA로 설정.
  *
- * - TCR_SMP_FLAGS[TCR_EL1.SH0, TCR_EL1.SH1] = Inner Shareable로 설정.
+ * - TCR_SMP_FLAGS[TCR_EL1.SH0, TCR_EL1.SH1]
+ *   = Inner Shareable로 설정. Linux가 사용하는 모든 CPU에서 접근이 가능하게 함.
  *
  * - TCR_TG_FLAGS[TCR_EL1.TG0, TCR_EL1.TG] = TTBR0_EL1, TTBR1_EL1의 Granule size.
  *
@@ -525,8 +529,8 @@ SYM_FUNC_START(__cpu_setup)
  *
  * - TCR_A1[TCR_EL1.A1] = TTBR1_EL1.ASID를 사용하겠다는것.
  * - TCR_KASAN_FLAGS[TCR_EL1.TCR_TBI1] = KASAN Config 사용시
- *		TTBR1_EL1 Address 계산시 Top byte를 무시하겠다는것. KASAN을 사용할려면
- *		Top Byte가 무시되게 해야된다고 Config 설명에 나와있다.
+ *	= TTBR1_EL1 Address 계산시 Top byte를 무시하겠다는것. KASAN을 사용할려면
+ *	Top Byte가 무시되게 해야된다고 Config 설명에 나와있다.
  */
 	/*
 	 * Set/prepare TCR and TTBR. We use 512GB (39-bit) address range for

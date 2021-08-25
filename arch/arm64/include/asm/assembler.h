@@ -658,6 +658,10 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 /*
  * tcr_clear_errata_bits - Clear TCR bits that trigger an errata on this CPU.
  */
+/*
+ * IAMROOT, 2021.08.25:
+ * - ID register에서 Fujitsu 라는게 맞다면 TCR_NFD1, TCR_NFD0 bit 를 clear한다.
+ */
 	.macro	tcr_clear_errata_bits, tcr, tmp1, tmp2
 #ifdef CONFIG_FUJITSU_ERRATUM_010001
 	mrs	\tmp1, midr_el1
