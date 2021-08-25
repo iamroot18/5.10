@@ -79,3 +79,7 @@
 ### 12주차
 - 2021.08.14, Zoom 온라인(27명 참석)
 - head.S의 __create_page_tables의 첫 번째 map_memory 직전 
+
+### 13주차
+- 2021.08.21, Zoom 온라인(21명 참석)
+- head.S: __cpu_setup()의 tcr_compute_pa_size 매크로 직전
