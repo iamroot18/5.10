@@ -522,7 +522,8 @@ SYM_FUNC_START(__cpu_setup)
  * ------------------------------
  *  
  * - TCR_KASLR_FLAGS[TCR_EL1.NFD1] = CONFIG_RANDOMIZE_BASE가 set되있을때만 설정.
- *   커널 주소공간에 대한 timing attack의 공격을 완하기 위함이라고 하며,
+ *   SVE사용시 특정 조건에서 커널 주소공간에 대한 timing attack의 공격을
+ *   완하기 위함이라고 하며,
  *   이것을 안할 경우 SVE load에서 suppressed fault와 FFR을 사용해서
  *   커널 주소 공간을 probe 할수있다고 한다. (Git blame 참고)
  *
