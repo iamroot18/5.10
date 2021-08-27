@@ -642,7 +642,7 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  *   ---
  *
  * - idmap table 크기와 init_pg_dir table크기를 집고 넘어가보면
- *   둘다 compile time에 크기 정해지고 idmap table이 init_pg_dir에 비해
+ *   둘다 compile time에 크기가 정해지고 idmap table이 init_pg_dir에 비해
  *   상대적으로 작은 size를 가진다.
  */
 /*

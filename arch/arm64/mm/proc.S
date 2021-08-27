@@ -521,16 +521,26 @@ SYM_FUNC_START(__cpu_setup)
  * [32:63]
  * ------------------------------
  *  
- * - TCR_KASLR_FLAGS[TCR_EL1.NFD1] = KASLR Config가 set되있을때만 설정을 한다.
+ * - TCR_KASLR_FLAGS[TCR_EL1.NFD1] = CONFIG_RANDOMIZE_BASE가 set되있을때만 설정.
+ *   커널 주소공간에 대한 timing attack의 공격을 완하기 위함이라고 하며,
+ *   이것을 안할 경우 SVE load에서 suppressed fault와 FFR을 사용해서
+ *   커널 주소 공간을 probe 할수있다고 한다. (Git blame 참고)
  *
- * - TCR_ASID16[TCR_EL1.AS] = ASID Size에 대한 설정이며 16bit로 사용한다는것.
+ * - TCR_ASID16[TCR_EL1.AS]
+ *   = ASID Size에 대한 설정이며 16bit로 사용한다는것.
+ *   TTBRx_EL1.ASID field와 매칭이 되는 내용이며 해당 필드를 몇 bit로 쓸건지에
+ *   대한 설정이다.
  *
  * - TCR_TBI0[TCR_EL1.TBI0] = TTBR0_EL1 Address 계산시 Top byte를 무시하겠다는것.
  *
  * - TCR_A1[TCR_EL1.A1] = TTBR1_EL1.ASID를 사용하겠다는것.
- * - TCR_KASAN_FLAGS[TCR_EL1.TCR_TBI1] = KASAN Config 사용시
- *	= TTBR1_EL1 Address 계산시 Top byte를 무시하겠다는것. KASAN을 사용할려면
- *	Top Byte가 무시되게 해야된다고 Config 설명에 나와있다.
+ *
+ * - TCR_KASAN_FLAGS[TCR_EL1.TCR_TBI1]
+ *	= CONFIG_KASAN_SW_TAGS 사용시 TTBR1_EL1 Address 계산시 Top byte를
+ *	무시하겠다는것.
+ *	KASAN을 사용할려면 Top Byte가 무시되게 해야된다고 CONFIG_KASAN_SW_TAGS 설명에 
+ *	나와있다. KASAN을 사용하면 해당영역은 TAG로 사용된다고 한다.
+ *
  */
 	/*
 	 * Set/prepare TCR and TTBR. We use 512GB (39-bit) address range for
@@ -541,10 +551,16 @@ SYM_FUNC_START(__cpu_setup)
 			TCR_TBI0 | TCR_A1 | TCR_KASAN_FLAGS
 /*
  * IAMROOT, 2021.08.21:
- * - Fujitsu-A64FX 라는 슈퍼컴퓨터에서 문제가 생겨 보완한 코드
+ * - Fujitsu-A64FX 라는 슈퍼컴퓨터에서 문제가 생겨 보완한 코드.
+ *   NFDx bit를 무조건 clear시킨다. (Git blame 참고)
  */
 	tcr_clear_errata_bits x10, x9, x5
 
+/*
+ * IAMROOT, 2021.08.26:
+ * head.S에서 __create_page_tables에서 설정된 vabits_actual, idmap_t0sz를 불러와
+ * register에 실제 설정을 하는 과정이다.
+ */
 #ifdef CONFIG_ARM64_VA_BITS_52
 	ldr_l		x9, vabits_actual
 	sub		x9, xzr, x9
