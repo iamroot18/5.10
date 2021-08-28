@@ -721,7 +721,7 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  * - PMD: shift(21), ptrs(512), count(0)
  *   iend   = vend   >> 21 = 0xf800_008f & 0x2ff = 0x008f
  *   iend  += count * ptrs = 0
- *   istart = vstart >> 21 = 0xf800_0089 & 0x2ff = 0x0080
+ *   istart = vstart >> 21 = 0xf800_0080 & 0x2ff = 0x0080
  *   count  = iend - istart = 15
  *   PMD table: 0x80 ~ 0x8f번까지의 엔트리만 사용
  *
