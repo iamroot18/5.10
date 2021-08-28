@@ -569,6 +569,13 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	.endm
 
 /*
+ * IAMROOT, 2021.08.28:
+ * ARM Ref : D5.3.1 VMSAv8-64 translation table level -1, level 0, level 1, and level 2 descriptor formats
+ * - VA_BITS 52 일때 LVA를 아키텍처에서 지원을 하면은
+ *   계산값을 ttbr register에 orr 한다.
+ *   이값은 0x1e00이다.
+ */
+/*
  * Offset ttbr1 to allow for 48-bit kernel VAs set with 52-bit PTRS_PER_PGD.
  * orr is used as it can cover the immediate value (and is idempotent).
  * In future this may be nop'ed out when dealing with 52-bit kernel VAs.

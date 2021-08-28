@@ -97,11 +97,23 @@
  */
 /*
  * IAMROOT, 2021.08.14: 
- * - 아래 모두 4K 기준
+ * - VA_BITS 48, page size 4K 기준
+ *   CONFIG_PGTABLE_LEVELS : 4단계
+ *
  * - PGDIR_SHIFT:  PGD에 사용할 SHIFT는 39
  * - PGDIR_SIZE:   512G (2^39)
  * - PGDIR_MASK:   0b1111 ....   0000000000000 (0 개수가 39개)
  * - PTRS_PER_PGD: 512개
+ *
+ * ------
+ *
+ * - VA_BITS 52, page size 64K 기준
+ *   CONFIG_PGTABLE_LEVELS : 3단계
+ *
+ * - PGDIR_SHIFT:  PGD에 사용할 SHIFT는 42
+ * - PGDIR_SIZE:   4T (2^42)
+ * - PGDIR_MASK:   0b1111 ....   0000000000000 (0 개수가 42개)
+ * - PTRS_PER_PGD: 1024
  */
 #define PGDIR_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(4 - CONFIG_PGTABLE_LEVELS)
 #define PGDIR_SIZE		(_AC(1, UL) << PGDIR_SHIFT)
@@ -332,7 +344,19 @@
  */
 #define TTBR_BADDR_MASK_52	(((UL(1) << 46) - 1) << 2)
 #endif
-
+/*
+ * IAMROOT, 2021.08.28:
+ * pgd entry를 확장할려고 계산하기 위한것.
+ *
+ * - VA_BITS 가 52bit이면 PAGE_SIZE가 64kb임을 고려한다.
+ *
+ * - 52 - 42 = 10  --> 2 ^10 = 1024
+ * - 48 - 42 = 6   --> 2 ^ 6 = 64
+ *   VA_BITS가 48일 때는 64개만을 원래 썻었는데
+ *   VA_BITS가 52일 때는 1024개까지 확장을 한다는 뜻.
+ *
+ * (1024 - 64) * 8 = 7680 (0x1e00)
+ */
 #ifdef CONFIG_ARM64_VA_BITS_52
 /* Must be at least 64-byte aligned to prevent corruption of the TTBR */
 #define TTBR1_BADDR_4852_OFFSET	(((UL(1) << (52 - PGDIR_SHIFT)) - \

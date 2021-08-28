@@ -249,6 +249,14 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 SYM_CODE_END(preserve_boot_args)
 
 /*
+ * IAMROOT, 2021.08.28:
+ * - pgd entry중에 하나를 그다음 테이블에 연결하기 위함.
+ *   page table을 하나 추가하는 개념이 되고,
+ *   현재 tbl은 PGD이고 이 다음 PUD를 잇기 위함이며 
+ *   다음 page table은 tbl + PAGE_SIZE address이므로,
+ *   그 주소를 가져와 해당 pud address에 해당하는 index에 값을 저장한다.
+ */
+/*
  * Macro to create a table entry to the next page.
  *
  *	tbl:	page table address
@@ -605,6 +613,16 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 #endif
 
 	mov	x4, EXTRA_PTRS
+	/*
+	 * IAMROOT, 2021.08.28:
+	 * VA_BITS 가 39라고 가정
+	 *
+	 * tbl  : x0 -> idmap_pg_dir
+	 * virt : x3 -> __idmap_text_start
+	 * shift : EXTRA_SHIFT -> 30 + 12 - 3 = 39
+	 * ptrs : EXTRA_PTRS -> 2^(9) = 512
+	 * x5, x6 : temp
+	 */
 	create_table_entry x0, x3, EXTRA_SHIFT, x4, x5, x6
 #else
 	/*
@@ -1392,6 +1410,12 @@ SYM_FUNC_START_LOCAL(__secondary_too_slow)
 SYM_FUNC_END(__secondary_too_slow)
 
 /*
+ * IAMROOT, 2021.08.28:
+ * - status를 저장한다.
+ *   status가 0이면 정상이다.
+ */
+
+/*
  * The booting CPU updates the failed status @__early_cpu_boot_status,
  * with MMU turned off.
  *
@@ -1422,6 +1446,14 @@ SYM_FUNC_END(__secondary_too_slow)
  * If it isn't, park the CPU
  */
 SYM_FUNC_START(__enable_mmu)
+/*
+ * IAMROOT, 2021.08.28:
+ * - Config 에 따른 Granule를 아키텍처가 지원하는지를 확인해서
+ *   지원을 안하면 cpu가 동작을 안하게 한다.
+ *   지원을 하면 정상임을 의미하는 status(0)를 저장한다.
+ *
+ *
+ */
 	mrs	x2, ID_AA64MMFR0_EL1
 	ubfx	x2, x2, #ID_AA64MMFR0_TGRAN_SHIFT, 4
 	cmp	x2, #ID_AA64MMFR0_TGRAN_SUPPORTED
@@ -1430,12 +1462,35 @@ SYM_FUNC_START(__enable_mmu)
 	adrp	x2, idmap_pg_dir
 	phys_to_ttbr x1, x1
 	phys_to_ttbr x2, x2
+/*
+ * IAMROOT, 2021.08.28:
+ * - ttbr0_el1 : user용이지만 부팅중에는 임시로 idmap으로 사용한다.
+ *   ttbr1_el1 : kernel용이며 init_pg_dir을 가리킨다.
+ */
 	msr	ttbr0_el1, x2			// load TTBR0
+/*
+ * IAMROOT, 2021.08.28:
+ * - TODO
+ */
 	offset_ttbr1 x1, x3
 	msr	ttbr1_el1, x1			// load TTBR1
 	isb
+/*
+ * IAMROOT, 2021.08.28:
+ * - SCTLR_EL1에 mmu eanble on이 set되있다.
+ *   이 명령어로 mmu enable 및 x0에 세팅되있던 설정들이 on된다.
+ */
 	msr	sctlr_el1, x0
 	isb
+
+/*
+ * IAMROOT, 2021.08.28:
+ * - I cache 를 PoU까지 모두 invalidate 한다.
+ *   
+ *   idmap.text에 이 code들이 들어잇고, idmap은 ttbr0_el1에서
+ *   바로위에서 가리키도록 설정했으며 phy와 1대1매핑인 상태기때문에
+ *   mmu가 켜지는즉시 page fault가 안 일어난다.
+ */
 	/*
 	 * Invalidate the local I-cache so that any instructions fetched
 	 * speculatively from the PoC are discarded, since they may have
@@ -1467,6 +1522,18 @@ SYM_FUNC_START(__cpu_secondary_check52bitva)
 2:	ret
 SYM_FUNC_END(__cpu_secondary_check52bitva)
 
+/*
+ * IAMROOT, 2021.08.28:
+ * - 아키텍처가 지원하지 않은 Granule를 설정하게 할려고 했기때문에
+ *   status를 error bit로 설정하고 무한 wait로 들어간다.
+ *
+ *   후에 하드웨어 디버깅을 할때 해당 변수를 확인하면 무슨 error 보게 하기
+ *   위함이다.
+ *
+ *   wfe : wait for event
+ *   wfi : wait for interrupt
+ *   너무 빠르게 계속 동작하지 않게 하기 위함(전력 소비를 줄이기위함)
+ */
 SYM_FUNC_START_LOCAL(__no_granule_support)
 	/* Indicate that this CPU can't boot and is stuck in the kernel */
 	update_early_cpu_boot_status \
@@ -1479,6 +1546,13 @@ SYM_FUNC_END(__no_granule_support)
 
 #ifdef CONFIG_RELOCATABLE
 SYM_FUNC_START_LOCAL(__relocate_kernel)
+/*
+ * IAMROOT, 2021.08.28:
+ * - 그전 까지는 adr, adrp를 사용했었는데 여기는 컴파일 당시에 사용한
+ *   절대주소를 사용해야 되기 때문에 ldr을 사용해야한다.
+ *   adr을 사용해도 되지만 __rela_offset등의 주소는 0xff..
+ *   주소이기 때문에 매우 멀리 떨어져 있어서 ldr을 사용해야 한다.
+ */
 	/*
 	 * Iterate over each entry in the relocation table, and apply the
 	 * relocations in place.
@@ -1487,12 +1561,47 @@ SYM_FUNC_START_LOCAL(__relocate_kernel)
 	ldr	w10, =__rela_size		// size of reloc table
 
 	mov_q	x11, KIMAGE_VADDR		// default virtual offset
+/*
+ * IAMROOT, 2021.08.28:
+ * - x23 : compile time에 계산된 kernel 주소를
+ *   2MB 정렬의 나머지값이 보통 0으로 보면된다.
+ *   randomized가 적용된경우 이 x23이 조금 틀어질수도있다.
+ *
+ *   relocate start address(x9) = x23(0) + KIMAGE_VADDR(x11)
+ *	+ __rela_offset(w9)
+ *   
+ *   relocate end address(x10) = x9 + __rela_size(w10)
+ */
 	add	x11, x11, x23			// actual virtual offset
 	add	x9, x9, x11			// __va(.rela)
 	add	x10, x9, x10			// __va(.rela) + sizeof(.rela)
 
 0:	cmp	x9, x10
 	b.hs	1f
+/*
+ * IAMROOT, 2021.08.28:
+ * - ldp : regiser 2개에 8byte씩 읽어온다.
+ *   x12 : x9가 가리키는 값이 저장.
+ *   x13 : x9 + 8이 가리키는값이 저장.
+ *   연산후 x9는 #24만큼 증가.
+ *
+ * ---
+ *  ldp + ldr을 표현하면 아래와 같다.
+ * x12 = [x9];
+ * x13 = [x9, 8];
+ * x9 += 24;
+ * x14 = [x9 - 8];
+ *
+ * ---
+ *  elf 스펙상 현재 entry를 24byte씩 사용한다.
+ *  entry정보에는 offset, type, value등이 있으며 그중에
+ *  type을 비교한다.
+ *  realtive type이 아니면 skip하고. type이 맞다면
+ *
+ *  x14가 가리키는곳에 x12를 저장한다.
+ *  randomized를 하면 kernel 주소가 조금씩 틀어지는데 
+ *  이 경우 x23이 조금바뀐다. 이것에 대한 보정을 해준다.
+ */
 	ldp	x12, x13, [x9], #24
 	ldr	x14, [x9, #-8]
 	cmp	w13, #R_AARCH64_RELATIVE
@@ -1584,6 +1693,13 @@ SYM_FUNC_END(__relocate_kernel)
 #endif
 
 SYM_FUNC_START_LOCAL(__primary_switch)
+/*
+ * IAMROOT, 2021.08.28:
+ * - CONFIG_RANDOMIZE_BASE : 일단 생략
+ * - CONFIG_RELR : 일단 생략
+ *
+ *   x0 : __cpu_setup 에서 제일 마지막에 return 받은 sctlr_el1의 config 값
+ */
 #ifdef CONFIG_RANDOMIZE_BASE
 	mov	x19, x0				// preserve new SCTLR_EL1 value
 	mrs	x20, sctlr_el1			// preserve old SCTLR_EL1 value
