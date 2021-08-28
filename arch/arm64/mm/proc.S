@@ -586,6 +586,7 @@ SYM_FUNC_START(__cpu_setup)
  * register에 실제 설정을 하는 과정이다.
  */
 #ifdef CONFIG_ARM64_VA_BITS_52
+/* IAMROOT, 2021.08.28: (0 - 52) + 64 = 12, T1SZ 크기를 12로 설정 */
 	ldr_l		x9, vabits_actual
 	sub		x9, xzr, x9
 	add		x9, x9, #64
