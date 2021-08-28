@@ -438,6 +438,10 @@ SYM_CODE_END(preserve_boot_args)
  * SWAPPER_MM_MMUFLAGS는 section type이다.
  */
 	compute_indices \vstart, \vend, #SWAPPER_BLOCK_SHIFT, #PTRS_PER_PTE, \istart, \iend, \count
+/*
+ * IAMROOT, 2021.08.28:
+ * count는 마지막 단계에서 더 이상 사용하지 않으므로 2MB 단위 정렬 후 rtbl에 사용한다.
+ */
 	bic \count, \phys, #SWAPPER_BLOCK_SIZE - 1
 	populate_entries \tbl, \count, \istart, \iend, \flags, #SWAPPER_BLOCK_SIZE, \tmp
 	.endm
@@ -644,8 +648,7 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  * - idmap table 크기와 init_pg_dir table크기를 집고 넘어가보면
  *   둘다 compile time에 크기가 정해지고 idmap table이 init_pg_dir에 비해
  *   상대적으로 작은 size를 가진다.
- */
-/*
+ *
  * IAMROOT, 2021.08.24:
  * Identity Mapping 시작.
  *
@@ -694,6 +697,35 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  * x3: __pa(_text)
  * x4: PTRS_PER_PGD
  * x10 ~ x14: temp register
+ *
+ * > 연습문제
+ *  vend  : 0xffff_0000_11f3_f000
+ * vstart : 0xffff_0000_1008_0000
+ * ------------------------------
+ * = 0x01eb_f000 (kimage size: 32MB)
+ *
+ * - PGD: shift(39), ptrs(512), count(0)
+ *   iend   = vend   >> 39 = 0x01ff_fe00 & 0x2ff(ptrs) = 0x0100
+ *   iend  += count * ptrs = 0
+ *   istart = vstart >> 39 = 0x01ff_fe00 & 0x2ff       = 0x0100
+ *   count  = iend - istart = 0
+ *   PGD table: 0x100번 엔트리만 사용
+ *
+ * - PUD: shift(30), ptrs(512), count(0)
+ *   iend   = vend   >> 30 = 0xfffc_0000 & 0x2ff = 0x0000
+ *   iend  += count * ptrs = 0
+ *   istart = vstart >> 30 = 0xfffc_0000 & 0x2ff = 0x0000
+ *   count  = iend - istart = 0
+ *   PUD table: 0번 엔트리만 사용
+ *
+ * - PMD: shift(21), ptrs(512), count(0)
+ *   iend   = vend   >> 21 = 0xf800_008f & 0x2ff = 0x008f
+ *   iend  += count * ptrs = 0
+ *   istart = vstart >> 21 = 0xf800_0089 & 0x2ff = 0x0080
+ *   count  = iend - istart = 15
+ *   PMD table: 0x80 ~ 0x8f번까지의 엔트리만 사용
+ *
+ * 최종 엔트리들이 가르키는 것은 2MB 단위로 정렬된 블럭
  */
 	map_memory x0, x1, x5, x6, x7, x3, x4, x10, x11, x12, x13, x14
 /*
