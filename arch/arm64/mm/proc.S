@@ -586,12 +586,39 @@ SYM_FUNC_START(__cpu_setup)
  * register에 실제 설정을 하는 과정이다.
  */
 #ifdef CONFIG_ARM64_VA_BITS_52
-/* IAMROOT, 2021.08.28: (0 - 52) + 64 = 12, T1SZ 크기를 12로 설정 */
+/*
+ * IAMROOT, 2021.08.28:
+ * vabits_actual:
+ *   - CONFIG_ARM64_VA_BITS_52가 setting 되었을 때,
+ *     하드웨어가 52비트를 support하는지 여부에 따라서
+ *     -   support 하면: vabits_actual = 52
+ *     - support 안하면: vabits_actual = 48
+ *
+ * 아래의 연산을 간단하게 적어보면,
+ * x9 = 0 - x9 + 64 = 0 - 52 + 64 = 12.
+ * TCR_EL1의 T1SZ 값을 12로 설정.
+ *
+ * tcr_el1에 x10의 값을 저장 할 것인데,
+ * 그 전에 몇 가지 값을 수정을 할 것이다.
+ * 여기서는 vabits_acutual의 값이 52일 때를 대비하여
+ * T1SZ의 값을 x9으로 수정한다.
+ * (간단히 말하면 64 - vabits_actual의 값을 저장한다.)
+ */
 	ldr_l		x9, vabits_actual
 	sub		x9, xzr, x9
 	add		x9, x9, #64
 	tcr_set_t1sz	x10, x9
 #else
+/* IAMROOT, 2021.08.28:
+ * VA bit <= 48 일때 해당 루틴을 실행.
+ *
+ * VA bit가 52면은 PA bit가 52보다 클 일이 없기 때문에
+ * 해당 루틴 필요가 없다.
+ *
+ * __idmap_text_end의 PA bit가 VA bit보다 크면 매핑할 virtual address space가
+ * 부족할 수 있기 때문에 VA bit 확장을 하는 루틴이 이전에 있었다.
+ * 그것을 반영하기 위해 해당 코드 실행.
+ */
 	ldr_l		x9, idmap_t0sz
 #endif
 	tcr_set_t0sz	x10, x9
@@ -599,7 +626,17 @@ SYM_FUNC_START(__cpu_setup)
 	/*
 	 * Set the IPS bits in TCR_EL1.
 	 */
+/*
+ * IAMROOT, 2021.08.28:
+ * Feature 레지스터의 PARange값이 커널이 설정한 MAX PARange값
+ * 을 넘지 않도록 설정하는 코드.
+ */
 	tcr_compute_pa_size x10, #TCR_IPS_SHIFT, x5, x6
+/*
+ * IAMROOT, 2021.08.28:
+ * Hardware적으로 Access Flag Update기능이 지원되면
+ * TCR_EL1.HA를 1로 세팅한다.
+ */
 #ifdef CONFIG_ARM64_HW_AFDBM
 	/*
 	 * Enable hardware update of the Access Flags bit.
@@ -612,6 +649,10 @@ SYM_FUNC_START(__cpu_setup)
 	orr	x10, x10, #TCR_HA		// hardware Access flag update
 1:
 #endif	/* CONFIG_ARM64_HW_AFDBM */
+/*
+ * IAMROOT, 2021.08.28:
+ * 지금까지 변경한 x10의 값을 tcr_el1에 세팅한다.
+ */
 	msr	tcr_el1, x10
 	/*
 	 * Prepare SCTLR
