@@ -444,8 +444,10 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	.endm
 /*
  * IAMROOT, 2021.08.21:
- * -id_aa64dfr0_el1.PMUVer : PMv3버전보다 작으면 pass, 크면
- *  pmuserenr_el0를 0으로 초기화한다.
+ * - id_aa64dfr0_el1.PMUVer:
+ *     PMUVer가 0이면 즉, PME (Performance Monitor Extension) 가 not implemented 이면 아무것도 안함.
+ *     PMUVer가 0이 아니면 즉, PMUv3가 implemented 되있으면 pmuserenr_el0를 0으로 초기화한다.
+ *     pmuserenr_el0를 0으로 초기화 한다는 말은 EL0가 PM 관련 레지스터 접근시 trap 하겠다는 뜻이다. (Disable PMU).
  */
 /*
  * reset_pmuserenr_el0 - reset PMUSERENR_EL0 if PMUv3 present
@@ -459,6 +461,13 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 9000:
 	.endm
 
+/*
+ * IAMROOT, 2021.08.28:
+ * - id_aa64dfr0_el1.AMU:
+ *     AMU가 0이면 즉, AME (Activity Monitors Extension) 가 not implemented 이면 아무것도 안함.
+ *     AMU가 0이 아니면 즉, AMU가 implemented 되있으면 amuserenr_el0를 0으로 초기화한다
+ *     amuserenr_el0를 0으로 초기화 한다는 말은 EL0가 AM 관련 레지스터 접근시 trap 하겠다는 뜻이다. (Disable AMU).
+ */
 /*
  * reset_amuserenr_el0 - reset AMUSERENR_EL0 if AMUv1 present
  */

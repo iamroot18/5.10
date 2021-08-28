@@ -439,6 +439,17 @@ SYM_FUNC_START(__cpu_setup)
 /*
  * IAMROOT, 2021.08.21:
  * - cpacr.fpen : floating point사용시 trap을 off한다는, 즉 사용하겠다는것.
+ * - mdscr.tdcc : EL0가 DCC (Debug Communication Channel) 레지스터 접근시 trap 발생.
+ * - enable_dbg : PSTATE의 DAIF에서 D비트를 클리어 (unmask, 즉 exception 허용).
+ *
+ * DCC:
+ *   - PE와 debugger 사이에 데이터를 주고 받기 위한 채널이다.
+ *
+ * DAIF:
+ *   - D: Debug exceptions mask.
+ *   - A: SError interrupt process state mask.
+ *   - I: IRQ interrupt process state mask.
+ *   - F: FIQ interrupt process state mask.
  */
 	mov	x1, #3 << 20
 	msr	cpacr_el1, x1			// Enable FP/ASIMD
@@ -450,6 +461,8 @@ SYM_FUNC_START(__cpu_setup)
  * IAMROOT, 2021.08.21:
  * - PMU (Performance Monitors), AMU (Activity Monitors)
  *  https://developer.arm.com/documentation/ka004659/latest
+ *
+ * EL0의 PMU, AMU 접근을 disable 한다.
  */
 	reset_pmuserenr_el0 x1			// Disable PMU access from EL0
 	reset_amuserenr_el0 x1			// Disable AMU access from EL0
@@ -482,6 +495,16 @@ SYM_FUNC_START(__cpu_setup)
  * GCR_EL1 : Tag Control Register.
  * TFSR_EL1 : Holds accumulated Tag Check Faults occurring in EL1 that are not taken precisely.
  * TFSRE0_EL1 : Holds accumulated Tag Check Faults occurring in EL0 that are not taken precisely.
+ *
+ * 1. GCR_EL1:
+ *      RRND를 1로, Exclude bit 16개를 전부 1로 set 한다.
+ *      RRND가 1이라는 것은 tag값을 ChooseRandomNonExcludedTag가 결정하겠다는 것을 뜻한다.
+ *      ChooseRandomNonExcludedTag는 Allocation Tag 값으로 0부터 15까지의 값을 non-deterministic 하게
+ *      고르게 되는데 Exclude bit[0:15] 에서 set되어 있는 녀석은 선택할 때 제외시킨다.
+ *      근데 만약 16개가 전부 1이라면 Allocation Tag 값으로 0을 사용한다.
+ *
+ * 2. TFSR_EL1, TFSRE0_EL1:
+ *      EL0, EL1에서 발생한 pending tag check faults를 클리어 해준다.
  */
 	/* initialize GCR_EL1: all non-zero tags excluded by default */
 	mov	x10, #(SYS_GCR_EL1_RRND | SYS_GCR_EL1_EXCL_MASK)
