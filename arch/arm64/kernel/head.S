@@ -170,8 +170,7 @@ SYM_CODE_START(primary_entry)
  *
  * - 커널 물리주소 위치를 읽어온 후 2M 정렬단위의 하위 offset를 
  *   x23에 기록한다.
- *   (해당 offset은 __create_page_tables 내에서 사용한다)
- 
+ *
  * ----
  *   TCR : Table Control Register
  */
@@ -1746,7 +1745,10 @@ SYM_FUNC_START_LOCAL(__primary_switch)
  * - CONFIG_RANDOMIZE_BASE : 일단 생략
  * - CONFIG_RELR : 일단 생략
  *
- *   x0 : __cpu_setup 에서 제일 마지막에 return 받은 sctlr_el1의 config 값
+ * x0: __cpu_setup에서 제일 마지막에 SCTRL_EL1_SET 매크로를 이용하여
+ *     sctrl_el1에 설정하려는 bits 값이 들어 있음.
+ *     x0 값은 sctrl_el1에서 읽은것이 아니라 bitmask를 통해 하드코딩으로
+ *     설정된 값.
  */
 #ifdef CONFIG_RANDOMIZE_BASE
 	mov	x19, x0				// preserve new SCTLR_EL1 value

@@ -620,6 +620,30 @@
 #define ENDIAN_SET_EL1		0
 #endif
 
+/*
+ * IAMROOT, 2021.08.29:
+ * sctlr_el1.x
+ * - m    : EL1/EL0 stage 1 MMU 사용.
+ * - c    : Data caches 사용
+ * - sa   : Stack Alignment check 사용.
+ * - sa0  : EL0 Stack Alignment check 사용.
+ * - sed  : SETEND instruction 사용 제한 (EL0가 AArch32 capable시)
+ *          'setend'는 EL0에서 A32/T32의 pstate.e에 big/little endian을 설정.
+ *          EL0에서 해당 명령어 사용시 EL1으로 exception 하여 trap 처리.
+ * - i    : Instruction caches 사용.
+ * - dze  : EL0에서 'dc zva' 명령어 허용 (zva: data cache zero by VA)
+ * - uct  : EL0에서 'CTR_EL0' 레지스터 접근 허용.
+ *          ctr_el0: cache type register, el0: 캐시 정보 제공.
+ * - ntwe : EL0에서 WFE 사용시 trap 여부, 1 설정시 trap 하지 않음
+ * - iesb : Implicit Error Synchronization event 허용
+ * - span : Set Privileged Access Never 기능
+ * - itfsb: Tag Check Faults 관련 (MTE2 구현시)
+ *          1로 설정되는 것은 Tag Check Faults를 EL1 sync exception에서
+ *          핸들링함을 의미.
+ * - ata  :
+ * - ata0 :
+ * - uci  : EL0에서 cache maintenance instructions 실행 허용.
+ */
 #define SCTLR_EL1_SET	(SCTLR_ELx_M    | SCTLR_ELx_C    | SCTLR_ELx_SA   |\
 			 SCTLR_EL1_SA0  | SCTLR_EL1_SED  | SCTLR_ELx_I    |\
 			 SCTLR_EL1_DZE  | SCTLR_EL1_UCT                   |\
