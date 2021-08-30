@@ -83,3 +83,7 @@
 ### 13주차
 - 2021.08.21, Zoom 온라인(21명 참석)
 - head.S: __cpu_setup()의 tcr_compute_pa_size 매크로 직전
+
+### 14주차
+- 2021.08.28, Zoom 온라인(27명 참석)
+- head.S: __primary_switch()의 __relocate_kernel() 진행중
