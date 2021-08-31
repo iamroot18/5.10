@@ -365,6 +365,13 @@ alternative_endif
  *	pos:		IPS or PS bitfield position
  *	tmp{0,1}:	temporary registers
  */
+/*
+ * IAMROOT, 2021.08.28:
+ * tmp0: feature 레지스터에서 읽어온 PARange 값.
+ * tmp1: 커널이 설정한 MAX PARange 값.
+ * tmp0와 tmp1을 unsigned로 비교해서
+ * tmp0가 tmp1보다 크면 tmp0 = tmp1을 해준다.
+ */
 	.macro	tcr_compute_pa_size, tcr, pos, tmp0, tmp1
 	mrs	\tmp0, ID_AA64MMFR0_EL1
 	// Narrow PARange to fit the PS field in TCR_ELx
