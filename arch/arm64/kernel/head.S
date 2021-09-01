@@ -1448,10 +1448,10 @@ SYM_FUNC_START(__enable_mmu)
 /*
  * IAMROOT, 2021.08.28:
  * - Config 에 따른 Granule를 아키텍처가 지원하는지를 확인해서
- *   지원을 안하면 cpu가 동작을 안하게 한다.
- *   지원을 하면 정상임을 의미하는 status(0)를 저장한다.
- *
- *
+ *   지원하지 않으면 __no_granule_support에서 무한루프 돌도록 하며
+ *   지원하면 정상임을 의미하는 status(0)를 저장한다.
+ *   early startup에서는 H/W debugger 이용하여 status 코드를
+ *   확인할 수 있다.
  */
 	mrs	x2, ID_AA64MMFR0_EL1
 	ubfx	x2, x2, #ID_AA64MMFR0_TGRAN_SHIFT, 4
