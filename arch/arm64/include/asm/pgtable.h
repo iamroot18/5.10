@@ -956,6 +956,14 @@ static inline void update_mmu_cache(struct vm_area_struct *vma,
 
 #define update_mmu_cache_pmd(vma, address, pmd) do { } while (0)
 
+/*
+ * IAMROOT, 2021.09.02:
+ *
+ * 아래의 git log 참조. (from commit 529c4b05a3cb2)
+ *
+ * The top 4 bits of a 52-bit physical address are positioned at bits 2..5
+ * 9 in the TTBR registers.
+ */
 #ifdef CONFIG_ARM64_PA_BITS_52
 #define phys_to_ttbr(addr)	(((addr) | ((addr) >> 46)) & TTBR_BADDR_MASK_52)
 #else

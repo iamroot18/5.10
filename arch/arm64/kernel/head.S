@@ -1449,9 +1449,14 @@ SYM_FUNC_START(__enable_mmu)
  * IAMROOT, 2021.08.28:
  * - Config 에 따른 Granule를 아키텍처가 지원하는지를 확인해서
  *   지원하지 않으면 __no_granule_support에서 무한루프 돌도록 하며
- *   지원하면 정상임을 의미하는 status(0)를 저장한다.
+ *   지원하면 정상임을 의미하는 status(0)를 __early_cpu_boot_status에 저장한다.
  *   early startup에서는 H/W debugger 이용하여 status 코드를
  *   확인할 수 있다.
+ *
+ * -   TGRAN: Translation Granule Size.
+ * -  TGRAN4: 4KB TGRAN
+ * - TGRAN16: 16KB TGRAN
+ * - TGRAN64: 64KB TGRAN
  */
 	mrs	x2, ID_AA64MMFR0_EL1
 	ubfx	x2, x2, #ID_AA64MMFR0_TGRAN_SHIFT, 4
@@ -1527,7 +1532,7 @@ SYM_FUNC_END(__cpu_secondary_check52bitva)
  *   status를 error bit로 설정하고 무한 wait로 들어간다.
  *
  *   후에 하드웨어 디버깅을 할때 해당 변수를 확인하면 무슨 error 보게 하기
- *   위함이다.
+ *   위함이다. (해당 변수: __early_cpu_boot_status)
  *
  *   wfe : wait for event
  *   wfi : wait for interrupt
@@ -1595,7 +1600,7 @@ SYM_FUNC_START_LOCAL(__relocate_kernel)
  *  elf 스펙상 현재 entry를 24byte씩 사용한다.
  *  entry정보에는 offset, type, value등이 있으며 그중에
  *  type을 비교한다.
- *  realtive type이 아니면 skip하고. type이 맞다면
+ *  relative type이 아니면 skip하고. type이 맞다면
  *
  *  x14가 가리키는곳에 x12를 저장한다.
  *  randomized를 하면 kernel 주소가 조금씩 틀어지는데 

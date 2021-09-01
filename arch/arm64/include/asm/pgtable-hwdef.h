@@ -342,6 +342,10 @@
  * This should be GENMASK_ULL(47, 2).
  * TTBR_ELx[1] is RES0 in this configuration.
  */
+/*
+ * IAMROOT, 2021.09.02:
+ * TTBR_BADDR_MASK_52 == (47 ~ 2)번째 비트가 전부 1인 숫자.
+ */
 #define TTBR_BADDR_MASK_52	(((UL(1) << 46) - 1) << 2)
 #endif
 /*
