@@ -1481,24 +1481,31 @@ SYM_FUNC_START(__enable_mmu)
 	isb
 /*
  * IAMROOT, 2021.08.28:
- * - SCTLR_EL1에 mmu eanble on이 set되있다.
- *   이 명령어로 mmu enable 및 x0에 세팅되있던 설정들이 on된다.
+ * - x0에 설정된 bits를 sctlr_el1에 set하며 MMU enable, D/I-cache 등
+ *   메모리와 관련된 기능을 on 한다.
  */
 	msr	sctlr_el1, x0
 /*
  * IAMROOT, 2021.09.02:
  * - mmu enable. ARMv8-A-Programmer-Guid에 보면 해당 예제가 나와있다.
  *
- * - page fault 발생여부에 대하여.
- *   idmap.text에 이 code들이 들어잇고, idmap은 ttbr0_el1에서
- *   바로위에서 가리키도록 설정했으며 phy와 1대1매핑인 상태기때문에
- *   mmu가 켜지는즉시 page fault가 안 일어난다.
+ * - sctlr_el1 설정후에는 MMU on과 동시에 CPU가 처리하는
+ *   모든 주소는 MMU를 통해 translation 된다.
+ *   현재 실행중인 instructions 또한 fetch시 MMU를 통하게 되는데
+ *   page fault를 방지하기 위해 현재 실행중인 instructions은 .idmap.text
+ *   섹션에 저장하며, MMU가 on 이어도 idmap을 통해 동일 주소로 접근하게
+ *   되므로 fault는 발생하지 않는다.
+ *   .idmap.text은 상위 16 bits (VA 48bits 기준)가 0이고 TTBR0 값을 통해
+ *   table base addr를 참조하므로 위처럼 ttbr0_el1에 idmap_pg_dir을 저장해야한다.
+ *
+ * - 현재 trap vector table 초기화 X, swapper page table 초기화 X 이므로
+ *   idmap을 통한 page fault 방어는 mandatory이다.
  */
 	isb
 
 /*
  * IAMROOT, 2021.08.28:
- * - I cache 를 PoU까지 모두 invalidate 한다.
+ * - I-cache를 PoU까지 모두 invalidate 한다.
  */
 	/*
 	 * Invalidate the local I-cache so that any instructions fetched
@@ -1561,6 +1568,13 @@ SYM_FUNC_START_LOCAL(__relocate_kernel)
  *   절대주소를 사용해야 되기 때문에 ldr을 사용해야한다.
  *   adr을 사용해도 되지만 __rela_offset등의 주소는 0xff..
  *   주소이기 때문에 매우 멀리 떨어져 있어서 ldr을 사용해야 한다.
+ *
+ * - ldr wX, =label은 아래와 같다.
+ *   ldr wX [pc, #offset_to_literal_pool]
+ *
+ *   adr을 통해 다른 섹션에 있는 주소를 참조할 수 없으므로 ldr 이용.
+ *
+ *   link: https://www.keil.com/support/man/docs/armasm/armasm_dom1359731149945.htm
  */
 	/*
 	 * Iterate over each entry in the relocation table, and apply the
