@@ -1485,15 +1485,20 @@ SYM_FUNC_START(__enable_mmu)
  *   이 명령어로 mmu enable 및 x0에 세팅되있던 설정들이 on된다.
  */
 	msr	sctlr_el1, x0
+/*
+ * IAMROOT, 2021.09.02:
+ * - mmu enable. ARMv8-A-Programmer-Guid에 보면 해당 예제가 나와있다.
+ *
+ * - page fault 발생여부에 대하여.
+ *   idmap.text에 이 code들이 들어잇고, idmap은 ttbr0_el1에서
+ *   바로위에서 가리키도록 설정했으며 phy와 1대1매핑인 상태기때문에
+ *   mmu가 켜지는즉시 page fault가 안 일어난다.
+ */
 	isb
 
 /*
  * IAMROOT, 2021.08.28:
  * - I cache 를 PoU까지 모두 invalidate 한다.
- *   
- *   idmap.text에 이 code들이 들어잇고, idmap은 ttbr0_el1에서
- *   바로위에서 가리키도록 설정했으며 phy와 1대1매핑인 상태기때문에
- *   mmu가 켜지는즉시 page fault가 안 일어난다.
  */
 	/*
 	 * Invalidate the local I-cache so that any instructions fetched
@@ -1567,14 +1572,14 @@ SYM_FUNC_START_LOCAL(__relocate_kernel)
 	mov_q	x11, KIMAGE_VADDR		// default virtual offset
 /*
  * IAMROOT, 2021.08.28:
- * - x23 : compile time에 계산된 kernel 주소를
- *   2MB 정렬의 나머지값이 보통 0으로 보면된다.
- *   randomized가 적용된경우 이 x23이 조금 틀어질수도있다.
+ * - x23 : compile time에 계산된 kernel 주소의 2MB 정렬의 나머지값.
+ *   보통 0으로 보면된다. randomized가 적용된경우 이 x23이 조금 틀어질수도있다.
  *
- *   relocate start address(x9) = x23(0) + KIMAGE_VADDR(x11)
- *	+ __rela_offset(w9)
+ * - relocate start address(x9)
+ *   x9 = x23(0) + KIMAGE_VADDR(x11) + __rela_offset(w9)
  *   
- *   relocate end address(x10) = x9 + __rela_size(w10)
+ * - relocate end address(x10)
+ *   x10 = x9 + __rela_size(w10)
  */
 	add	x11, x11, x23			// actual virtual offset
 	add	x9, x9, x11			// __va(.rela)
@@ -1584,58 +1589,70 @@ SYM_FUNC_START_LOCAL(__relocate_kernel)
 	b.hs	1f
 /*
  * IAMROOT, 2021.08.28:
- * - ldp : regiser 2개에 8byte씩 읽어온다.
- *   x12 : x9가 가리키는 값이 저장.
- *   x13 : x9 + 8이 가리키는값이 저장.
- *   연산후 x9는 #24만큼 증가.
+ * =====================================================================
+ *  - ELF Relocation Table Entry Format
+ *  https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-54839.html
  *
- * ---
- *  ldp + ldr을 표현하면 아래와 같다.
- * x12 = [x9];
- * x13 = [x9, 8];
- * x9 += 24;
- * x14 = [x9 - 8];
+ *  +-------------------------------+--------+------+------------+
+ *  | Description                   | offset | size | filed name |
+ *  +-------------------------------+--------+------+------------+
+ *  | Offset used to cacluate reloc | 0x00   | 8    | r_offset   |
+ *  | Reloc typing meta-data        | 0x08   | 8    | r_info     |
+ *  | Extra argument used in reloc  | 0x10   | 8    | r_addend   |
+ *  +-------------------------------+--------+------+------------+
  *
- * ---
- *  elf 스펙상 현재 entry를 24byte씩 사용한다.
- *  entry정보에는 offset, type, value등이 있으며 그중에
- *  type을 비교한다.
- *  relative type이 아니면 skip하고. type이 맞다면
+ *  elf 스펙상 현재 Table Entry를 24byte씩 사용한다.
+ *  Table 정보에는 offset, type, addend등이 있으며 그중에 type을 비교한다.
  *
- *  x14가 가리키는곳에 x12를 저장한다.
- *  randomized를 하면 kernel 주소가 조금씩 틀어지는데 
- *  이 경우 x23이 조금바뀐다. 이것에 대한 보정을 해준다.
- *  
- *  ---
+ * =====================================================================
+ *
  *  다음은 실제 vmlinux의 .rel.dyn section을 72byte만
  *  dump 한 예제이며, 현재 x9는 첫번째줄의 데이터 0번째를
  *  가리키고 있을것이다.
  *
- * 989fdd10 0080ffff 03040000 00000000 3c9cdb10 0080ffff
- * a09fdd10 0080ffff 03040000 00000000 d86ae010 0080ffff
- * a89fdd10 0080ffff 03040000 00000000 4058dd10 0080ffff
+ * -----------------------------------------------------------
+ * (x9) 989fdd10 0080ffff 03040000 00000000 3c9cdb10 0080ffff
+ *      a09fdd10 0080ffff 03040000 00000000 d86ae010 0080ffff
+ *      a89fdd10 0080ffff 03040000 00000000 4058dd10 0080ffff
+ * (little endian으로 되있다는것을 고려한다.)
+ * (x9 : x9에 저장되있는 주소의 위치)
+ * -----------------------------------------------------------
  *
- * little endian으로 되있다는것을 고려한 상태에서 보면
- * 24byte단위로 data가 일관적임을 알수 있다.
+ * 행별로 첫 8byte가 r_offset, 그다음 8byte가 r_info, 그 다음 8byte가 r_addend
+ * 가 된다.
  * 
  * x12, x13 register에 어떻게 데이터가 저장되는지 살펴보면
  * (편의상 little endian dump를 그대로 사용한다)
  * 
  * ldp	x12, x13, [x9], #24 이 명령어가 실행되면 첫번쨰줄의
  *
- * 989fdd10 0080ffff 03040000 00000000 3c9cdb10 0080ffff 에서
- * x12 : 989fdd10 0080ffff
- * x13 : 03040000 00000000
- * 이렇게 x12, x13에 데이터가 저장될것이고
+ * -----------------------------------------------------------
+ * (x9) 989fdd10 0080ffff 03040000 00000000 3c9cdb10 0080ffff
+ * -----------------------------------------------------------
+ * 에서
  *
+ * x12 = [x9] = 989fdd10 0080ffff
+ * x13 = [x9, 8] = 03040000 00000000
+ *
+ * 이렇게 x12, x13에 데이터가 저장될것이고
  * 3c9cdb10 0080ffff 이 다음이 x9가 될것이다.
+ *
+ * -----------------------------------------------------------
+ *      989fdd10 0080ffff 03040000 00000000 3c9cdb10 0080ffff
+ * (x9) a09fdd10 0080ffff 03040000 00000000 d86ae010 0080ffff
+ *      a89fdd10 0080ffff 03040000 00000000 4058dd10 0080ffff
+ * -----------------------------------------------------------
  *
  * ldr	x14, [x9, #-8] 이 명령어가 실행되면
  * 
- * 3c9cdb10 0080ffff .여기에 x9가 위치하고 있으므로
- * x9의 -8만큼의 위치는
+ * 3c9cdb10 0080ffff .여기에 x9가 위치하고 있으므로 x9의 -8만큼의 위치는
  * 
- * (여기가 될것이다 )3c9cdb10 0080ffff (여긴 x9)
+ * -----------------------------------------------------------
+ *      989fdd10 0080ffff 03040000 00000000 (x9 - 8) 3c9cdb10 0080ffff
+ * (x9) a09fdd10 0080ffff 03040000 00000000          d86ae010 0080ffff
+ *      a89fdd10 0080ffff 03040000 00000000          4058dd10 0080ffff
+ * -----------------------------------------------------------
+ *  위와 같을것이다.
  * 
  * 즉 x14엔 3c9cdb10 0080ffff가 저장될것이다.
  * 다시 dump당 x9의 포지션과 x12, x13, x14값을 정리하면 다음과 같다.
@@ -1643,16 +1660,40 @@ SYM_FUNC_START_LOCAL(__relocate_kernel)
  * loop당
  *  |  x9위치 | x12(symbol addr)  | x13(type)         | x14(rel addr)       
  * -------+--------------------+---------------------+-----------------
- * 1|  x9    | 989fdd10 0080ffff | 03040000 00000000 | 3c9cdb10 0080ffff
- * 2|  x9    | a09fdd10 0080ffff | 03040000 00000000 | d86ae010 0080ffff
- * 3|  x9    | a89fdd10 0080ffff | 03040000 00000000 | 4058dd10 0080ffff
+ * 0|  x9    | 989fdd10 0080ffff | 03040000 00000000 | 3c9cdb10 0080ffff
+ * 1|  x9    | a09fdd10 0080ffff | 03040000 00000000 | d86ae010 0080ffff
+ * 2|  x9    | a89fdd10 0080ffff | 03040000 00000000 | 4058dd10 0080ffff
  *
  * 그 후 x13을 R_AARCH64_RELATIVE값과 비교해서 해당값과 맞다면
  * (R_AARCH64_RELATIVE의 hex값은 0x403이고 현재 dump는
- * little endian임으로 해당값이 알맞게 들어가는것을 알수있다.)
+ * little endian임으로 해당값이랑 일치하고 있다.)
  * 
  * x14에 x23(0, 혹은 조금 틀어진)을 더한후
  * x12 + x23의 주소에 x14값을 넣는, 즉 dynamic relocation이 수행된다.
+ *
+ * =====================================================================
+ *
+ * ldp : regiser 2개에 8byte씩 읽어온다.
+ * x12 : x9가 가리키는 값이 저장.
+ * x13 : x9 + 8이 가리키는값이 저장.
+ * 계산후 x9는 #24만큼 증가.
+ *
+ *  ----------------------------------
+ *  ldp + ldr을 표현하면 아래와 같다.
+ *  x12 = [x9];
+ *  x13 = [x9, 8];
+ *  x9 += 24;
+ *  x14 = [x9 - 8];
+ *  ----------------------------------
+ *
+ * 그리고 relative type이 아니면 skip하고. type이 맞다면
+ * x14가 가리키는곳에 x12를 저장한다.
+ *
+ * randomized를 하면 kernel 주소가 조금씩 틀어지는데 
+ * 이 경우 x23이 조금바뀐다. 이것에 대한 보정을 해준다.
+ *  
+ * ---
+ *
  */
 	ldp	x12, x13, [x9], #24
 	ldr	x14, [x9, #-8]

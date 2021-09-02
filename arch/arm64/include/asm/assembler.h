@@ -578,7 +578,7 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 /*
  * IAMROOT, 2021.08.28:
  * ARM Ref : D5.3.1 VMSAv8-64 translation table level -1, level 0, level 1, and level 2 descriptor formats
- * - VA_BITS 52 일때 LVA를 아키텍처에서 지원을 하면은
+ * - VA_BITS 52 일때 LVA를 아키텍처에서 지원을 안하면
  *   계산값을 ttbr register에 orr 한다.
  *   이값은 0x1e00이다.
  */
