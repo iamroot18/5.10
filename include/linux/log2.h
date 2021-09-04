@@ -199,7 +199,13 @@ int __order_base_2(unsigned long n)
 {
 	return n > 1 ? ilog2(n - 1) + 1 : 0;
 }
-
+/*
+ * IAMROOT, 2021.09.04:
+ * __builtin_constant_p : 상수라면 true. gcc 명령어
+ *
+ * - n == 64 일때
+ *   2^6 = 64 --> 33 ~ 64까지가 6이나옴. 즉 2^n에서 가장가까운 최대 n을 구하는것
+ */
 /**
  * order_base_2 - calculate the (rounded up) base 2 order of the argument
  * @n: parameter

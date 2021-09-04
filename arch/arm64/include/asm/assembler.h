@@ -578,9 +578,36 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 /*
  * IAMROOT, 2021.08.28:
  * ARM Ref : D5.3.1 VMSAv8-64 translation table level -1, level 0, level 1, and level 2 descriptor formats
- * - VA_BITS 52 일때 LVA를 아키텍처에서 지원을 안하면
- *   계산값을 ttbr register에 orr 한다.
- *   이값은 0x1e00이다.
+ * - kernel이 VA 52bit인 상태에서 Arch가 48bit만을 지원하는 경우
+ *   pgd table 위치를 offset(0x1e00)만큼 더한다.
+ *
+ * ---
+ *
+ * kernel, arch 둘다 VA bit가 48이거나 52인 경우 문제가 없는데,
+ * kernel만 52일 경우 다음과 같은 문제가 발생한다.
+ *
+ * 주소 0x0000_0000_0000을 접근한다고 가정햇을때
+ * pgd_index를 구해보면 (42bit(PGDIR_SHIFT) shift시키면)
+ *
+ * kernel : pgd_index(0xffff_0000_0000_0000) = 0x3c0
+ * user   : pgd_index(0x0000_0000_0000_0000) = 0
+ *
+ * user 영역은 변화가 없지만 kernel영역은 변화가 생긴다.
+ * (user, kernel 둘다 같은 VA bit를 사용한다면 전부 0으로 나온다.)
+ *
+ * kernel에서는 user 영역이든 kenrel 영역이든 pgd_index를 사용하여
+ * pgd를 접근하는데 해당 환경일때만 다른 pgd_index가 발생한다.
+ *
+ * 그래서 el1에서만 offset값인 0x3c0에 entry크기인 8만큼을
+ * 곱한 0x1e00를 보정해주는것이다.
+ *
+ * runtime시 arch에 따라, user냐 kernel에 따라 보정해줄수도 있지만
+ * kernel은 가능한한 compile time에 이런 연산을 끝내고 runtime시에의
+ * 연산을 최소화하는 정책을 사용하므로 이러한 용법이 들어간거라고 볼수있다.
+ *
+ * ---
+ *  ARM Ref에는 해당 bit들이 RES0로 써야된다고 나와있긴하지만 Ref에 잘못
+ *  써져있다고 생각이 된다고 일단 의견을 모은 상태.
  */
 /*
  * Offset ttbr1 to allow for 48-bit kernel VAs set with 52-bit PTRS_PER_PGD.

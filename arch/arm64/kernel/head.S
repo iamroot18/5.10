@@ -780,32 +780,103 @@ SYM_FUNC_END(__create_page_tables)
  *   x0 = __PHYS_OFFSET
  */
 SYM_FUNC_START_LOCAL(__primary_switched)
+/*
+ * IAMROOT, 2021.09.04:
+ * - init_thread_union의 source 상 위치
+ *   vmlinux.lds.S -> RW_DATA -> INIT_TASK_DATA -> init_thread_union
+ *
+ *   task 영역을 stack으로 사용하기 위해 task address를 가져온다.
+ *
+ * - memory
+ *   
+ *   (높은 주소)
+ *   ..
+ *   ..
+ *   ..
+ *   sp (stack pointer)
+ *   -----------------
+ *   init_thread_union(end)
+ *   THREAD_SIZE
+ *   init_thread_union(start)
+ *   -----------------
+ *   (낮은 주소)
+ *
+ * - 참고 : Documentation/x86/kernel-stacks.rst 
+ */
 	adrp	x4, init_thread_union
 	add	sp, x4, #THREAD_SIZE
 	adr_l	x5, init_task
-	msr	sp_el0, x5			// Save thread_info
 
+/*
+ * IAMROOT, 2021.09.04:
+ * - user쪽 sp를 init_task로 설정
+ * - why : TODO
+ */
+	msr	sp_el0, x5			// Save thread_info
+/*
+ * IAMROOT, 2021.09.04:
+ * - 생략
+ */
 #ifdef CONFIG_ARM64_PTR_AUTH
 	__ptrauth_keys_init_cpu	x5, x6, x7, x8
 #endif
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - kernel용 vector table 주소 설정.
+ */
 	adr_l	x8, vectors			// load VBAR_EL1 with virtual
 	msr	vbar_el1, x8			// vector table address
 	isb
 
+/*
+ * IAMROOT, 2021.09.04:
+ *  stack_push(0), stack_push(x30) 과 동일 의미
+ *
+ *  ----------------
+ *  (sp -= 16)
+ *  sp - 16 : 0
+ *  sp - 8  : x30
+ *  ----------------
+ *  sp
+ */
 	stp	xzr, x30, [sp, #-16]!
 	mov	x29, sp
 
+/*
+ * IAMROOT, 2021.09.04:
+ * - stack에 함수 return 주소등이 들어 갈수 있는데 attacker들이 이러한
+ *   값들을 변조시킬수 있는 상황이 있다. 이러한 상황을 감시하기 위한
+ *   설정이다.
+ */
 #ifdef CONFIG_SHADOW_CALL_STACK
 	adr_l	scs_sp, init_shadow_call_stack	// Set shadow call stack
 #endif
 
+/*
+ * IAMROOT, 2021.09.04:
+ * - 처음 부팅시 부트로더부터 가져온 fdt 주소를 x21에 backup 해놨었는데
+ *   해당 값을 __fdt_pointer에 저장함
+ */
 	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
 
+/*
+ * IAMROOT, 2021.09.04:
+ * 
+ * - kimage_voffset = _text - 바뀐 커널 가상주소
+ *
+ * compile 타임에서의 kernel 시작주소와 randomized가 끝난 kernel 시작주소와의
+ * offset을 구해와서 kimage_voffset에 저장한다.
+ */
 	ldr_l	x4, kimage_vaddr		// Save the offset between
 	sub	x4, x4, x0			// the kernel virtual and
 	str_l	x4, kimage_voffset, x5		// physical mappings
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - 보통 일반 application을 동작시킬시에는 loader가 bss를 초기화 시켜주지만
+ *   kernel은 자신이 초기화한다.
+ *   memset에 대한 instruction을 내리고 해당 instruction이(store)끝날때까지
+ *   기다린다.
+ */
 	// Clear BSS
 	adr_l	x0, __bss_start
 	mov	x1, xzr
@@ -817,6 +888,12 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 #ifdef CONFIG_KASAN
 	bl	kasan_early_init
 #endif
+/*
+ * IAMROOT, 2021.09.04:
+ * - CONFIG_RANDOMIZE_BASE가 on이면 __primary_switch에서 __primary_switched
+ *   가 2번을 호출하고 첫번째에는 ret을 통해 빠져나가고 두번째 호출에는
+ *   tst를 통해 0번 label로 이동해서 start_kernel을 실행하는 구조이다.
+ */
 #ifdef CONFIG_RANDOMIZE_BASE
 	tst	x23, ~(MIN_KIMG_ALIGN - 1)	// already running randomized?
 	b.ne	0f
@@ -828,6 +905,20 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	ret					// to __primary_switch()
 0:
 #endif
+/*
+ * IAMROOT, 2021.09.04:
+ * 위 코드에서 stack에 값2개를 push했었지만 CONFIG_RANDOMIZE_BASE가
+ * off라고 했을때 해당값을 사용안하고 그냥 버린다.
+ *
+ * - PCS에 따르면 x29는 fp(frame pointer), x30은 lr(link register)를 사용한다고
+ *   하며, 해당 값들을 0으로 초기화한다.
+ *
+ * To avoid backtracing using PCs that fall in the idmap, or are controlled
+ * by userspace, we must explcitly zero the FP and LR in startup paths, and
+ * must ensure that the frame embedded in pt_regs is zeroed upon entry from
+ * EL0. To avoid these NULL entries showin in the backtrace, unwind_frame()
+ * is updated to avoid them.
+ */
 	add	sp, sp, #16
 	mov	x29, #0
 	mov	x30, #0
@@ -1472,10 +1563,6 @@ SYM_FUNC_START(__enable_mmu)
  *   ttbr1_el1 : kernel용이며 init_pg_dir을 가리킨다.
  */
 	msr	ttbr0_el1, x2			// load TTBR0
-/*
- * IAMROOT, 2021.08.28:
- * - TODO
- */
 	offset_ttbr1 x1, x3
 	msr	ttbr1_el1, x1			// load TTBR1
 	isb
@@ -1487,7 +1574,7 @@ SYM_FUNC_START(__enable_mmu)
 	msr	sctlr_el1, x0
 /*
  * IAMROOT, 2021.09.02:
- * - mmu enable. ARMv8-A-Programmer-Guid에 보면 해당 예제가 나와있다.
+ * - mmu enable. ARMv8-A-Programmer-Guide에 보면 해당 예제가 나와있다.
  *
  * - sctlr_el1 설정후에는 MMU on과 동시에 CPU가 처리하는
  *   모든 주소는 MMU를 통해 translation 된다.
@@ -1562,20 +1649,6 @@ SYM_FUNC_END(__no_granule_support)
 
 #ifdef CONFIG_RELOCATABLE
 SYM_FUNC_START_LOCAL(__relocate_kernel)
-/*
- * IAMROOT, 2021.08.28:
- * - 그전 까지는 adr, adrp를 사용했었는데 여기는 컴파일 당시에 사용한
- *   절대주소를 사용해야 되기 때문에 ldr을 사용해야한다.
- *   adr을 사용해도 되지만 __rela_offset등의 주소는 0xff..
- *   주소이기 때문에 매우 멀리 떨어져 있어서 ldr을 사용해야 한다.
- *
- * - ldr wX, =label은 아래와 같다.
- *   ldr wX [pc, #offset_to_literal_pool]
- *
- *   adr을 통해 다른 섹션에 있는 주소를 참조할 수 없으므로 ldr 이용.
- *
- *   link: https://www.keil.com/support/man/docs/armasm/armasm_dom1359731149945.htm
- */
 	/*
 	 * Iterate over each entry in the relocation table, and apply the
 	 * relocations in place.
@@ -1799,10 +1872,8 @@ SYM_FUNC_START_LOCAL(__relocate_kernel)
 SYM_FUNC_END(__relocate_kernel)
 #endif
 
-SYM_FUNC_START_LOCAL(__primary_switch)
 /*
  * IAMROOT, 2021.08.28:
- * - CONFIG_RANDOMIZE_BASE : 일단 생략
  * - CONFIG_RELR : 일단 생략
  *
  * x0: __cpu_setup에서 제일 마지막에 SCTRL_EL1_SET 매크로를 이용하여
@@ -1810,7 +1881,19 @@ SYM_FUNC_START_LOCAL(__primary_switch)
  *     x0 값은 sctrl_el1에서 읽은것이 아니라 bitmask를 통해 하드코딩으로
  *     설정된 값.
  */
+SYM_FUNC_START_LOCAL(__primary_switch)
+/*
+ * IAMROOT, 2021.09.04:
+ * - CONFIG_RANDOMIZE_BASE를 살펴보면 해당 CONFIG가
+ *   on시 반드시 CONFIG_RELOCATABLE도 on이 되야함이 보인다.
+ *   kernel 주소가 randomized가 됬으므로 그에 따른 보정이 반드시 필요하기
+ *   때문이다.
+ */
 #ifdef CONFIG_RANDOMIZE_BASE
+/*
+ * IAMROOT, 2021.09.04:
+ * - x19에 sctrl_el1 값을 backup하고 설정되있던 sctlr_el1값을 가져온다.
+ */
 	mov	x19, x0				// preserve new SCTLR_EL1 value
 	mrs	x20, sctlr_el1			// preserve old SCTLR_EL1 value
 #endif
@@ -1835,6 +1918,10 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 	pre_disable_mmu_workaround
 	msr	sctlr_el1, x20			// disable the MMU
 	isb
+/*
+ * IAMROOT, 2021.09.04:
+ * - relocate를 했으므로 다시 한번 page table을 만든다.
+ */
 	bl	__create_page_tables		// recreate kernel mapping
 
 	tlbi	vmalle1				// Remove any stale TLB entries
@@ -1849,6 +1936,17 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 	bl	__relocate_kernel
 #endif
 #endif
+/*
+ * IAMROOT, 2021.09.04:
+ * - b label을 쓰면 안되는이유. (이렇게 하면 오동작함)
+ *
+ *   __primary_switched는 .init.text section에 존재하고
+ *   __primary_switch는 .idmap.text section에 존재한다.
+ *
+ *   kernel의 가상주소를 이용해서 branch를 하게 되있다.
+ * - ldr, adr 차이
+ *   (보충 설명 필요)
+ */
 	ldr	x8, =__primary_switched
 	adrp	x0, __PHYS_OFFSET
 	br	x8

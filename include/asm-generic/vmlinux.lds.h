@@ -757,7 +757,10 @@
 
 #define EXIT_CALL							\
 	*(.exitcall.exit)
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - small BSS
+ */
 /*
  * bss (Block Started by Symbol) - uninitialized data
  * zeroed during startup

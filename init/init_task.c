@@ -58,6 +58,12 @@ unsigned long init_shadow_call_stack[SCS_SIZE / sizeof(long)]
 #endif
 
 /*
+ * IAMROOT, 2021.09.04:
+ * - CONFIG_ARCH_TASK_STRUCT_ON_STACK : default off
+ * - CONFIG_THREAD_INFO_IN_TASK       : default on
+ *   
+ */
+/*
  * Set up the first task table, touch at your own risk!. Base=0,
  * limit=0x1fffff (=2MB)
  */

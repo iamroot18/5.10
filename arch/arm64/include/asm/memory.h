@@ -19,6 +19,21 @@
  * IO_SPACE_LIMIT acts as a mask for the low bits of I/O addresses.
  */
 #define PCI_IO_SIZE		SZ_16M
+/*
+ * IAMROOT, 2021.09.04:
+ * page 구조체가 mapping 되는 공간. 전체 kernel의 가상주소공간이
+ * mapping 됬을때의 필요한 공간이 몇인지를 계산.
+ *
+ * - PAGE_END : 0xffff_8000_0000_0000
+ * - PAGE_OFFSET : 0xffff_0000_0000_0000
+ * - STRUCT_PAGE_MAX_SHIFT : 6(default 값. debug등의 값이 더 존재하면 7).
+ *
+ * 0xffff_8000_0000_0000 - 0xffff_0000_0000_0000 = 0x8000_0000_0000
+ *
+ * 0x8000_0000_0000 >> (12 - 6) = 0x200_0000_0000 = VMEMMAP_SIZE
+ *
+ * 즉 VMEMMAP_SIZE = 2TB
+*/
 
 /*
  * VMEMMAP_SIZE - allows the whole linear region to be covered by
@@ -58,11 +73,33 @@
  *  => 0xffff_8000_0000_0000 + 0x1000_0000
  *  => 0xffff_8000_1000_0000
  *  여기에 추가로 runtime에 randomize가 들어갈수있다.
- *
  *  ============
+ *
+ * ---
+ * 
+ * FIXADDR_TOP(0xffff_fdff_ea00_0000)
+ * ------------
+ *  SZ_2M
+ * ------------
+ * PCI_IO_START(0xffff_fdff_ec00_0000)
+ * PCI_IO_SIZE(SZ_16M)
+ * PCI_IO_END (0xffff_fdff_fc00_0000)
+ * ------------
+ * SZ_2M
+ * ------------
+ * VMEMMAP_START(0xffff_fdff_fe00_0000)
+ * VMEMMAP_SIZE(2TB)
+ * VMEMMAP_END(0xffff_ffff_fe00_0000)
+ * ------------
+ * SZ_2M(0)
+ *
  */
 #define VA_BITS			(CONFIG_ARM64_VA_BITS)
 #define _PAGE_OFFSET(va)	(-(UL(1) << (va)))
+/*
+ * IAMROOT, 2021.09.04:
+ * - VA 48Bit 4kb page 일때 : 0xffff_0000_0000_0000
+ */
 #define PAGE_OFFSET		(_PAGE_OFFSET(VA_BITS))
 #define KIMAGE_VADDR		(MODULES_END)
 #define BPF_JIT_REGION_START	(KASAN_SHADOW_END)
@@ -71,6 +108,11 @@
 #define MODULES_END		(MODULES_VADDR + MODULES_VSIZE)
 #define MODULES_VADDR		(BPF_JIT_REGION_END)
 #define MODULES_VSIZE		(SZ_128M)
+/*
+ * IAMROOT, 2021.09.04:
+ * -
+ *  (0 - 0x200_0000_0000 - 0x20_0000) = 0xffff_fdff_feff_ffff
+ **/
 #define VMEMMAP_START		(-VMEMMAP_SIZE - SZ_2M)
 #define VMEMMAP_END		(VMEMMAP_START + VMEMMAP_SIZE)
 #define PCI_IO_END		(VMEMMAP_START - SZ_2M)
@@ -123,9 +165,20 @@
 #define KASAN_THREAD_SHIFT	0
 #define KASAN_SHADOW_END	(_PAGE_END(VA_BITS_MIN))
 #endif /* CONFIG_KASAN */
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - CONFIG_KASAN이 off라고 가정. 16kb
+ */
 #define MIN_THREAD_SHIFT	(14 + KASAN_THREAD_SHIFT)
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - CONFIG_VMAP_STACK : stack이란게 연속된 주소가 필요한데, VMAP_STACK을 사용하면
+ *   연속된 가상주소를 이용해서 할당함으로 fragment를 회피하기 위한설정.
+ *   64bit 시스템에서는 VA 48bit(PAGE_SIZE = 4kb)인 경우 16kb가 보통이다.
+ *
+ *   vmap을 사용하면 buddy system을 통해서 order 0를 4개를 가져오며
+ *   사용안하는 경우에는 order 2로 연속된 공간을 가져온다.
+ */
 /*
  * VMAP'd stacks are allocated at page granularity, so we must ensure that such
  * stacks are a multiple of page size.

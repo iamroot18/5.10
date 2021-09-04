@@ -1180,7 +1180,10 @@ static inline pte_t * fixmap_pte(unsigned long addr)
 {
 	return &bm_pte[pte_index(addr)];
 }
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - NEXT TODO(setup_arch)
+ */
 /*
  * The p*d_populate functions call virt_to_phys implicitly so they can't be used
  * directly on kernel symbols (bm_p*d). This function is called too early to use

@@ -30,6 +30,10 @@ static inline void kernel_fpu_end(void)
 {
 }
 
+/*
+ * IAMROOT, 2021.09.04:
+ * - __attribute__XX.. : GCC 컴파일러의 속성 요청
+ */
 #define __aligned(x) __attribute__((aligned(x)))
 
 #define X86_FEATURE_MMX		(0*32+23) /* Multimedia Extensions */

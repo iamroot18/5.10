@@ -53,7 +53,10 @@
 
 static int num_standard_resources;
 static struct resource *standard_resources;
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - __initdata : include/linux/init.h
+ */
 phys_addr_t __fdt_pointer __initdata;
 
 /*

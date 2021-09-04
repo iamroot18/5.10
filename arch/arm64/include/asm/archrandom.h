@@ -59,7 +59,11 @@ static inline bool __must_check arch_get_random_seed_int(unsigned int *v)
 	*v = val;
 	return ok;
 }
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - 현재 arch에서 random number 명령어(RNDR and RNDRRS registers)를
+ *   지원하는지에 대한것을 확인(RNG(Random Number Generator)지원 여부)
+ */
 static inline bool __init __early_cpu_has_rndr(void)
 {
 	/* Open code as we run prior to the first call to cpufeature. */

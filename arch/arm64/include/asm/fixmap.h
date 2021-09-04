@@ -21,7 +21,11 @@
 #include <asm/boot.h>
 #include <asm/page.h>
 #include <asm/pgtable-prot.h>
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - 가상주소의 특정범위를 특정용도로 고정하여 사용하기 위한 정의이다.
+ *   전체 size는 약 6MB가 조금 못되게 나온다.
+ */
 /*
  * Here we define all the compile-time 'special' virtual
  * addresses. The point is to have a constant address at
@@ -66,6 +70,10 @@ enum fixed_addresses {
 	FIX_ENTRY_TRAMP_TEXT,
 #define TRAMP_VALIAS		(__fix_to_virt(FIX_ENTRY_TRAMP_TEXT))
 #endif /* CONFIG_UNMAP_KERNEL_AT_EL0 */
+/*
+ * IAMROOT, 2021.09.04:
+ * - 약 4MB. FIX_FDT_SIZE가 4MB에 나머지 값들이 조금 더 있는 개념.
+ */
 	__end_of_permanent_fixed_addresses,
 
 	/*
@@ -76,6 +84,11 @@ enum fixed_addresses {
 #define FIX_BTMAPS_SLOTS	7
 #define TOTAL_FIX_BTMAPS	(NR_FIX_BTMAPS * FIX_BTMAPS_SLOTS)
 
+/*
+ * IAMROOT, 2021.09.04:
+ * - FIX_BTMAP_END ~ __end_of_fixed_addresses :
+ *   early_ioremap 영역. 256kb * 7
+ */
 	FIX_BTMAP_END = __end_of_permanent_fixed_addresses,
 	FIX_BTMAP_BEGIN = FIX_BTMAP_END + TOTAL_FIX_BTMAPS - 1,
 

@@ -31,6 +31,19 @@ static enum kaslr_status __initdata kaslr_status;
 u64 __ro_after_init module_alloc_base;
 u16 __initdata memstart_offset_seed;
 
+/*
+ * IAMROOT, 2021.09.04:
+ * - devicetree/bindings/chosen.txt
+ *
+ * {
+ *	chosen {
+ *		kaslr-seed = <0xfeedbeef 0xc0def00d>;
+ *	};
+ * };
+ *
+ * dtb에 위와 비슷하게 정의되있는 값이 존재하고, 해당 값을 추출하여
+ * random값을 정의 하는데 사용한다. 없으면 0로 return 시킨다.
+ */
 static __init u64 get_kaslr_seed(void *fdt)
 {
 	int node, len;
@@ -110,7 +123,11 @@ u64 __init kaslr_early_init(u64 dt_phys)
 	 * Retrieve (and wipe) the seed from the FDT
 	 */
 	seed = get_kaslr_seed(fdt);
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - dtb에서 /choosen/bootargs를 가져와서 kaslr을 사용하지 않은 옵션이
+ *   존재하면 skip한다.
+ */
 	/*
 	 * Check if 'nokaslr' appears on the command line, and
 	 * return 0 if that is the case.
@@ -134,7 +151,21 @@ u64 __init kaslr_early_init(u64 dt_phys)
 		kaslr_status = KASLR_DISABLED_NO_SEED;
 		return 0;
 	}
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - seed값을 구해왔는데, 이 seed값은 64bit값
+ *
+ * - mask (VA 48bit)
+ *   (1 << (48 - 2)) - 1 -> kernel 공간의 반에 반절. 64TB를 범위로 하겠다는것.
+ *
+ *   mask = (64TB 범위) & (2MB algin) = 0x0000_3fff_ffe0_0000
+ *   offset = 0x0000_2000_0000_0000 + (seed & 0x0000_3fff_ffe0_0000)
+ *
+ *   Min start address = offset(32TB)
+ *   MAX start address = 64TB - 2MB
+ *
+ *   32TB부터 64TB까지 2MB 단위의 random offset을 구하겠다는 의미이다.
+ */
 	/*
 	 * OK, so we are proceeding with KASLR enabled. Calculate a suitable
 	 * kernel image offset from the seed. Let's place the kernel in the
@@ -161,7 +192,12 @@ u64 __init kaslr_early_init(u64 dt_phys)
 		 * 4 GB of the module region.
 		 */
 		return offset % SZ_2G;
-
+/*
+ * IAMROOT, 2021.09.04:
+ * - module_range = SZ_2G - kernel_size
+ * - module_alloc_base 
+ *   kernel_image_end_addr + offset - SZ_2G와  MODULES_VADDR중에 max값을 고름
+ */
 	if (IS_ENABLED(CONFIG_RANDOMIZE_MODULE_REGION_FULL)) {
 		/*
 		 * Randomize the module region over a 2 GB window covering the

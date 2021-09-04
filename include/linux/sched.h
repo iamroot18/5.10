@@ -1710,6 +1710,20 @@ extern void ia64_set_curr_task(int cpu, struct task_struct *p);
 void yield(void);
 
 union thread_union {
+/*
+ * IAMROOT, 2021.09.04:
+ * thread_info가 task안에 들어갈수 있으며 task는 stack안에 들어갈수 있는
+ * 구조이다. 그렇기 때문에 union구조가 된다
+ * 
+ * - CONFIG_ARCH_TASK_STRUCT_ON_STACK(default off)
+ *   task 구조체가 stack안에 있는지 없는지에 대한 설정.
+ *
+ * - CONFIG_THREAD_INFO_IN_TASK(default on)
+ *   struct task_struct 안에 thread_info가 존재하게하는지에 대한 설정.
+ *   존재하지 않으면 kernel stack에 넣어야됨.
+ *
+ *   결국에 default는 task와 stack만 union으로 공유하고 있는 상황이다.
+ */
 #ifndef CONFIG_ARCH_TASK_STRUCT_ON_STACK
 	struct task_struct task;
 #endif
