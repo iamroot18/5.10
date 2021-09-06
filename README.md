@@ -87,3 +87,7 @@
 ### 14주차
 - 2021.08.28, Zoom 온라인(27명 참석)
 - head.S: __primary_switch()의 __relocate_kernel() 진행중
+
+### 15주차
+- 2021.09.04, Zoom 온라인(22명 참석)
+- head.S: CONFIG_RANDOMIZE_BASE 커널 옵션 부분 진행중
