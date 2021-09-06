@@ -809,8 +809,12 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 
 /*
  * IAMROOT, 2021.09.04:
- * - user쪽 sp를 init_task로 설정
- * - why : TODO
+ * sp_el0:
+ * - sp_el0는 유저 공간으로 context switch 된 후 유저용 스택 위치를
+ *   가리키는 용도로 사용된다. 그러나 커널(el1)에서는 사용하지 않는 
+ *   스크래치 레지스터 용도일 뿐이므로 이를 활용하여 thread_info를 가리키는 
+ *   레지스터로 사용합니다.
+ * - 참고: https://github.com/torvalds/linux/commit/6cdf9c7ca687e01840d0215437620a20263012fc
  */
 	msr	sp_el0, x5			// Save thread_info
 /*
