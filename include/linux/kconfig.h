@@ -126,7 +126,9 @@
  *  두번째 인자가 1이면, 마지막 __take_second_arg에서 두번째 인자로 return되는것이
  *  결국 __or의 두번째 인자가 return되므로 1이 되는것이다.
  */
- /* IS_ENABLED(CONFIG_FOO) evaluates to 1 if CONFIG_FOO is set to 'y' or 'm',
+
+/*
+ * IS_ENABLED(CONFIG_FOO) evaluates to 1 if CONFIG_FOO is set to 'y' or 'm',
  * 0 otherwise.
  */
 #define IS_ENABLED(option) __or(IS_BUILTIN(option), IS_MODULE(option))
