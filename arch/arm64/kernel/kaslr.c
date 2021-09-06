@@ -153,8 +153,6 @@ u64 __init kaslr_early_init(u64 dt_phys)
 	}
 /*
  * IAMROOT, 2021.09.04:
- * - seed값을 구해왔는데, 이 seed값은 64bit값
- *
  * - mask (VA 48bit)
  *   (1 << (48 - 2)) - 1 -> kernel 공간의 반에 반절. 64TB를 범위로 하겠다는것.
  *

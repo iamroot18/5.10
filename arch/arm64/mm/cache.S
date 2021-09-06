@@ -168,26 +168,28 @@ SYM_FUNC_START_PI(__inval_dcache_area)
  */
  /*
   * IAMROOT, 2021.07.18: 
-  * __inval_dcache_area(char * start, int size) {
-  *	  int end = start + size;
-  *	  int dcache_min_line = dcache_line_size();	// 64로가정 0x40
-  *	  int mask = dcache_min_line - 1;		// 0x40 - 1 = 0x3f
-  *	  if(end & mark) {
-  *      	end &= ~(mark);
-  *      	clean_invalidated_cache(end); // dc civac, x1
-  *        } 
-  *        
-  *        if(start & mark) {
-  *        	  start &= ~(mark);
-  *        	  clean_invalidated_cache(start);
-  *        	  start += dcache_min_line;
-  *        }
+  * __inval_dcache_area(char * start, int size)
+  * {
+  *		int end = start + size;
+  *		int dcache_min_line = dcache_line_size();	// 64로가정 0x40
+  *		int mask = dcache_min_line - 1;		// 0x40 - 1 = 0x3f
   *
-  *        while(start < end) {
-  *      	invalidated_cache(start);
-  *      	start += dcache_min_line;
-  *        }
-  *  }
+  *		if(end & mark) {
+  *			end &= ~(mark);
+  *      	clean_invalidated_cache(end); // dc civac, x1
+  *     }
+  *        
+  *     if(start & mark) {
+  *			start &= ~(mark);
+  *			clean_invalidated_cache(start);
+  *			start += dcache_min_line;
+  *		}
+  *
+  *		while(start < end) {
+  *			invalidated_cache(start);
+  *			start += dcache_min_line;
+  *		}
+  * }
   */
 
 	add	x1, x1, x0

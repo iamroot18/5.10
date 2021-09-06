@@ -373,6 +373,34 @@
 	. = ALIGN(align);						\
 	*(.data..cacheline_aligned)
 
+/*
+ * IAMROOT, 2021.09.05:
+ * init_thread_union과 init_stack이 같은 주소를 공유하니 기본적으로
+ * stack과 union이 동일하다고 보면된다.(stack은 unoion의 끝주소에서부터 자란다)
+ *
+ * - CONFIG_ARCH_TASK_STRUCT_ON_STACK == off(default)
+ *   .data..init_task에는 아무것도 없다.
+ *
+ *   -- CONFIG_THREAD_INFO_IN_TASK == on(default)
+ *    init_thread_info 또한 다른데에 위치가 된 init_task에 존재하므로
+ *    .data..init_thread_info가 비게 된다.
+ *   
+ *   -- CONFIG_THREAD_INFO_IN_TASK == off(사용안함)
+ *    .data..init_thread_info에 init_thread_info가 위치하게 된다.
+ *
+ * - CONFIG_ARCH_TASK_STRUCT_ON_STACK == on
+ *   .data..init_task에 init_task가 위치하게 된다.
+ *   -- CONFIG_THREAD_INFO_IN_TASK == on
+ *    init_thread_info 는 init_task에 존재하므로 .data..init_thread_info가 
+ *    비게 되고, .data..init_task는 init_thread_info가 포함된 만큼 커질것이다.
+ *   
+ *   -- CONFIG_THREAD_INFO_IN_TASK == off(사용안함)
+ *    .data..init_task에는 init_task가, .data..init_thread_info에는
+ *    init_thread_info가 위치한다.
+ *
+ * current_thread_info()의 주석을 살펴보면 CONFIG_THREAD_INFO_IN_TASK == off
+ * 에 대한것은 고려안한거 같다.
+ */
 #define INIT_TASK_DATA(align)						\
 	. = ALIGN(align);						\
 	__start_init_task = .;						\

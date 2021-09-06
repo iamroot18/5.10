@@ -62,6 +62,8 @@ unsigned long init_shadow_call_stack[SCS_SIZE / sizeof(long)]
  * - CONFIG_ARCH_TASK_STRUCT_ON_STACK : default off
  * - CONFIG_THREAD_INFO_IN_TASK       : default on
  *   
+ *   CONFIG_ARCH_TASK_STRUCT_ON_STACK == on이면 INT_TASK_DATA정의 에따라
+ *   stack의 첫번째에 위치함을 알 수 있다.
  */
 /*
  * Set up the first task table, touch at your own risk!. Base=0,
@@ -221,6 +223,16 @@ struct task_struct init_task
 };
 EXPORT_SYMBOL(init_task);
 
+/*
+ * IAMROOT, 2021.09.05:
+ * - CONFIG_ARCH_TASK_STRUCT_ON_STACK : default off
+ * - CONFIG_THREAD_INFO_IN_TASK       : default on
+ *   
+ *   CONFIG_THREAD_INFO_IN_TASK == on이면 task_struct의 첫번째 멤버로 할당된다.
+ *
+ *   CONFIG_THREAD_INFO_IN_TASK == off이면 CONFIG_ARCH_TASK_STRUCT_ON_STACK == off
+ *   일때 INT_TASK_DATA정의에 따라 stack의 첫번째에 위치하게 된다.
+ */
 /*
  * Initial thread structure. Alignment of this is handled by a special
  * linker map entry.

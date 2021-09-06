@@ -1709,9 +1709,41 @@ extern void ia64_set_curr_task(int cpu, struct task_struct *p);
 
 void yield(void);
 
-union thread_union {
 /*
  * IAMROOT, 2021.09.04:
+ *
+ * INIT_TASK_DATA, __init_thread_info, init_task를 종합적으로 살펴보면
+ * 다음과 같다.
+ *
+ * ====================================================================
+ *
+ * CONFIG별 thread_info, task위치
+ *
+ * on,off / on,off : CONFIG_ARCH_TASK_STRUCT_ON_STACK/CONFIG_THREAD_INFO_IN_TASK
+ *
+ * - on / on : stack에 task가 존재하며 task에 thread_info가 존재한다.
+ *       +--------- stack ---------------------------------------> TASK_SIZE
+ *       +-- task_struct(task_info 포함) --->| stack end         | stack start
+ *  
+ * - on / off : stack에는 task, thread_info가 순서대로 존재한다.(사용안함)
+ *       +--------- stack ---------------------------------------> TASK_SIZE
+ *       +- task_struct ----->| -task_info ->| stack end         | stack start
+ *
+ * - off / on : stack은 stack 용도로만 사용한다.
+ *       +--------- stack ---------------------------------------> TASK_SIZE
+ *       + stack end                                             | stack start
+ *
+ * - off / off : stack에 thread_info가 존재한다.(사용안함)
+ *       +--------- stack ---------------------------------------> TASK_SIZE
+ *       +--task_info ->| stack end                              | stack start
+ *
+ * current_thread_info()의 주석을 살펴보면 CONFIG_THREAD_INFO_IN_TASK == off
+ * 에 대한것은 플랫폼 개발자가 정의해야되는거 같다.
+ * task_thread_info에서도 기본적으로 task->stack으로 접근을 하여
+ * task안에 thread_info가 없는 경우는 일단 무조건 stack의 첫주소를 보게는
+ * 해놨지만 새로 정의 가능하게 해놓은걸 볼수있다.
+ * ====================================================================
+ *
  * thread_info가 task안에 들어갈수 있으며 task는 stack안에 들어갈수 있는
  * 구조이다. 그렇기 때문에 union구조가 된다
  * 
@@ -1720,10 +1752,13 @@ union thread_union {
  *
  * - CONFIG_THREAD_INFO_IN_TASK(default on)
  *   struct task_struct 안에 thread_info가 존재하게하는지에 대한 설정.
- *   존재하지 않으면 kernel stack에 넣어야됨.
+ *   존재하지 않으면 kernel stack에 넣어야된다.
  *
  *   결국에 default는 task와 stack만 union으로 공유하고 있는 상황이다.
+ *
+ * ====================================================================
  */
+union thread_union {
 #ifndef CONFIG_ARCH_TASK_STRUCT_ON_STACK
 	struct task_struct task;
 #endif
