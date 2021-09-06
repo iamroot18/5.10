@@ -1900,6 +1900,19 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 
 	adrp	x1, init_pg_dir
 	bl	__enable_mmu
+
+/*
+ * IAMROOT, 2021.09.06: 
+ * - CONFIG_RELOCATABLE
+ *   AArch64의 경우 PIE(position independant execution)를 위해 런타임에 
+ *   커널이 초기화될 때 리로케이션 엔트리를 갱신해야 하기위해 이 커널 옵션을
+ *   사용해야 한다.
+ * - CONFIG_RANDOMIZE_BASE
+ *   KASLR(Kernel Address Space Layout Randomization)이라고 불리운다.
+ *   커널과 모듈의 시작 위치를 랜더마이즈하게 하여 위치를 숨겨 보안을 높인다.
+ *   이 커널 옵션을 사용하는 경우 __relocation_kernel: 을 한 번 더 호출한다.
+ *   즉, 커널의 시작 위치가 변경되면 심볼 위치등을 모두 재 리로케이션한다.
+ */
 #ifdef CONFIG_RELOCATABLE
 #ifdef CONFIG_RELR
 	mov	x24, #0				// no RELR displacement yet
@@ -1938,14 +1951,25 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 #endif
 /*
  * IAMROOT, 2021.09.04:
- * - b label을 쓰면 안되는이유. (이렇게 하면 오동작함)
+ * - b label을 쓰면 안되는이유.
+ *   __primary_switch의 코드들은 idmap_pg_dir에 매핑하여 동작하는 코드이고,
+ *   __primary_switched의 코드들은 init_pg_dir에 매핑하여 동작하는 코드라서
+ *   두 코드간의 거리가 매우 멀다. 이렇게 long distance jump를 위해서는
+ *   b 명령 대신 레지스터를 사용하는 br 명령을 사용한다.
  *
  *   __primary_switched는 .init.text section에 존재하고
  *   __primary_switch는 .idmap.text section에 존재한다.
  *
  *   kernel의 가상주소를 이용해서 branch를 하게 되있다.
+ *
  * - ldr, adr 차이
- *   (보충 설명 필요)
+ *   1) ldr x0, label
+ *      label에 위치한 8바이트 값을 로드한다.
+ *   2) ldr x0, =label
+ *      pesudo-insutruction 으로 컴파일러가 label 주소를 8바이트에 담아두고,
+ *      이를 읽어오는 코드를 만들어낸다. 즉, 컴파일 타임의 label 주소를 알아온다.
+ *   3) adr x0, label
+ *      런타임에 label 주소를 알아온다.
  */
 	ldr	x8, =__primary_switched
 	adrp	x0, __PHYS_OFFSET
