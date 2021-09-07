@@ -72,7 +72,8 @@ enum fixed_addresses {
 #endif /* CONFIG_UNMAP_KERNEL_AT_EL0 */
 /*
  * IAMROOT, 2021.09.04:
- * - 약 4MB. FIX_FDT_SIZE가 4MB에 나머지 값들이 조금 더 있는 개념.
+ * - 약 4MB(PAGE_SIZE 4kb 기준).
+ *   FIX_FDT_SIZE가 4MB에 나머지 값들이 조금 더 있는 개념.
  */
 	__end_of_permanent_fixed_addresses,
 
@@ -105,6 +106,11 @@ enum fixed_addresses {
 };
 
 #define FIXADDR_SIZE	(__end_of_permanent_fixed_addresses << PAGE_SHIFT)
+/*
+ * IAMROOT, 2021.09.07:
+ * arch/arm64/include/asm/memory.h 에서 그려논 memory map 참고하면 어느
+ * 위치 쯤에 있는지 파악이된다.
+ */
 #define FIXADDR_START	(FIXADDR_TOP - FIXADDR_SIZE)
 
 #define FIXMAP_PAGE_IO     __pgprot(PROT_DEVICE_nGnRE)

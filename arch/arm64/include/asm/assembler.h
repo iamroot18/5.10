@@ -400,6 +400,20 @@ alternative_else
 alternative_endif
 	.endm
 
+/*
+ * IAMROOT, 2021.09.07:
+ * .ifc:
+ *  - 참고 https://developer.arm.com/documentation/100067/0612/armclang-Integrated-Assembler/Conditional-assembly-directives
+ *  - .ifc에 맞는 조건에 따라서 assembly code가 생성된다.
+ *  예를들어 
+ *  dcache_by_line_op civac, sy, x0, x1, x2, x3
+ *
+ *  위와 같은 code가 있다면 .ifc 자리에는
+ *  dc civac, \kaddr 
+ *  명령어가 매크로 자리로 들어갈것이다.
+ *
+ * - kaddr(start address)부터 size만큼 dc 명령어를 수행후 dsb sy까지 수행한다.
+ */
 	.macro dcache_by_line_op op, domain, kaddr, size, tmp1, tmp2
 	dcache_line_size \tmp1, \tmp2
 	add	\size, \kaddr, \size

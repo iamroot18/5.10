@@ -157,12 +157,15 @@ u64 __init kaslr_early_init(u64 dt_phys)
  *   (1 << (48 - 2)) - 1 -> kernel 공간의 반에 반절. 64TB를 범위로 하겠다는것.
  *
  *   mask = (64TB 범위) & (2MB algin) = 0x0000_3fff_ffe0_0000
- *   offset = 0x0000_2000_0000_0000 + (seed & 0x0000_3fff_ffe0_0000)
+ *        => max 값은 64TB - 2MB. 
+ *   offset = 0x0000_2000_0000_0000(32TB) + (seed & 0x0000_3fff_ffe0_0000)
+ *   min offset(seed & 0x0000_3fff_ffe0_0000 = 0)
+ *              = 32TB + 1
+ *   max offset(seed & 0x0000_3fff_ffe0_0000 = 0x0000_3fff_ffe0_0000)
+ *              = 32TB + 64TB - 2MB
  *
- *   Min start address = offset(32TB)
- *   MAX start address = 64TB - 2MB
- *
- *   32TB부터 64TB까지 2MB 단위의 random offset을 구하겠다는 의미이다.
+ *   32TB부터 96TB - 2MB까지의 범위 안에서  2MB 단위의 random offset을
+ *   구하겠다는 의미이다.
  */
 	/*
 	 * OK, so we are proceeding with KASLR enabled. Calculate a suitable
@@ -190,12 +193,6 @@ u64 __init kaslr_early_init(u64 dt_phys)
 		 * 4 GB of the module region.
 		 */
 		return offset % SZ_2G;
-/*
- * IAMROOT, 2021.09.04:
- * - module_range = SZ_2G - kernel_size
- * - module_alloc_base 
- *   kernel_image_end_addr + offset - SZ_2G와  MODULES_VADDR중에 max값을 고름
- */
 	if (IS_ENABLED(CONFIG_RANDOMIZE_MODULE_REGION_FULL)) {
 		/*
 		 * Randomize the module region over a 2 GB window covering the
