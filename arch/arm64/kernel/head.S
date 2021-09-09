@@ -782,22 +782,23 @@ SYM_FUNC_END(__create_page_tables)
 SYM_FUNC_START_LOCAL(__primary_switched)
 /*
  * IAMROOT, 2021.09.04:
- * - init_thread_union의 source 상 위치
+ * - EL1 SP(Stack Pointer) 설정
+ *
+ *   init_thread_union의 source 상 위치
  *   vmlinux.lds.S -> RW_DATA -> INIT_TASK_DATA -> init_thread_union
  *
  *   task 영역을 stack으로 사용하기 위해 task address를 가져온다.
  *
- * - memory
+ * - Memory Layout
  *   
  *   (높은 주소)
  *   ..
  *   ..
  *   ..
- *   sp (stack pointer)
  *   -----------------
- *   init_thread_union(end)
- *   THREAD_SIZE
- *   init_thread_union(start)
+ *   (end)   - init_thread_union, stack <- SP (Stack Pointer)
+ *   THREAD_SIZE (Stack Size, 16k: CONFIG_KASAN off)
+ *   (start) - init_thread_union, stack
  *   -----------------
  *   (낮은 주소)
  *
@@ -901,6 +902,11 @@ SYM_FUNC_START_LOCAL(__primary_switched)
  *
  * compile 타임에서의 kernel 시작주소와 randomized가 끝난 kernel 시작주소와의
  * offset을 구해와서 kimage_voffset에 저장한다.
+ */
+/*
+ * IAMROOT, 2021.09.09:
+ * - x0은 idmap 코드 실행중 저장한 _va(__PHYS_OFFSET) 값이고 _pa(__PHYS_OFFSET)와
+ *   같다. 따라서 '_va(_text) - _pa(_text) = offset'로 해석할 수 있다.
  */
 	ldr_l	x4, kimage_vaddr		// Save the offset between
 	sub	x4, x4, x0			// the kernel virtual and

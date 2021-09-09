@@ -46,18 +46,25 @@ SYM_FUNC_START_ALIAS(__memset)
 SYM_FUNC_START_WEAK_PI(memset)
 /*
  * IAMROOT, 2021.09.07:
- * val로 들어온값을 전부 byte마다 복사한다.
- * val = 0xa라고 가정하면
- * A_lw = 0xa
- * A_lw = (A_lw << 8)  | A_lw = 0xa0 | 0xa = 0xaa
- * A_lw = (A_lw << 16) | A_lw = 0xaa00 | 0xaa = 0xaaaa
- * A_lw = (A_lw << 32) | A_lw = 0xaaaa0000 | 0xaaaa = 0xaaaa_aaaa
+ * val값을 base로 하여 x7(A_L, 64-bits) reg에 복사한다.
+ * val = 0x0A(1 byte)라고 가정하면
+ * - A_lw(0x0A)       = 0x0A & 0xFF
+ * - A_lw(0x0A0A)     = 0x000A (A_lw) + 0x0A00 (0x000A << 8) (A_lw)
+ * - A_lw(0x0A0A0A0A) = 0x00000A0A (A_lw) + 0x0A0A0000 (0x00000A0A << 16) (A_lw)
+ * - A_l(0x0A0A0A0A0A0A0A0A) =
+ *     0x000000000A0A0A0A (A_l) + 0x0A0A0A0A00000000 (0x000000000A0A0A0A << 32) (A_l)
+ * - x7(A_l) = 0x0A0A0A0A0A0A0A0A
  */
 	mov	dst, dstin	/* Preserve return value.  */
 	and	A_lw, val, #255
 	orr	A_lw, A_lw, A_lw, lsl #8
 	orr	A_lw, A_lw, A_lw, lsl #16
 	orr	A_l, A_l, A_l, lsl #32
+/*
+ * IAMROOT, 2021.09.09:
+ * - 복사할 값(0x0A)을 x7 reg에 준비. 아직 메모리에 쓰지 않았으며
+ *   x2(요청 사이즈)에 따라 처리 루틴이 달라진다.
+ */
 
 	cmp	count, #15
 	b.hi	.Lover16_proc

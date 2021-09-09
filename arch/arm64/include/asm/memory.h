@@ -204,7 +204,7 @@
 #endif /* CONFIG_KASAN */
 /*
  * IAMROOT, 2021.09.04:
- * - CONFIG_KASAN이 off라고 가정. 16kb
+ * - 최소 16k (CONFIG_KASAN off), 최대 32k (CONFIG_KASAN on)
  */
 #define MIN_THREAD_SHIFT	(14 + KASAN_THREAD_SHIFT)
 /*
