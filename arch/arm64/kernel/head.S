@@ -898,10 +898,21 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 /*
  * IAMROOT, 2021.09.04:
  * 
- * - kimage_voffset = _text - 바뀐 커널 가상주소
+ * - kimage_voffset = kimage_vaddr - __PHYS_OFFSET
+ *   kimage_vaddr은 va(_text)이다. 그리고 __PHYS_OFFSET은 pa(_text)이므로
  *
- * compile 타임에서의 kernel 시작주소와 randomized가 끝난 kernel 시작주소와의
- * offset을 구해와서 kimage_voffset에 저장한다.
+ *   kimage_voffset = va(_text) - pa(_text)
+ *
+ *   즉 kimage_voffset은 가상주소에서 물리주소 변환을 위한 offset을 의미한다.
+ *
+ *   여기서 relocate 를 한다면 va(_text)는 relocate 된 va(_text)가 될것이다.
+ *
+ * - CONFIG_RANDOMIZE_BASE on시의 kimage_voffset
+ *   CONFIG_RANDOMIZE_BASE가 on이 되면 __primary_switched를 총 2번 진입하는데
+ *
+ *   첫번째 진입할때에는 randomized가 되기 전인 relocate만 한 va(_text)이고,
+ *   이후 뒷 code에서 kaslr_early_init의 결과값으로 주어진 random offset을
+ *   사용해서 다시 relocate된 kimage_vaddr을 사용해서 offset을 다시 구한다.
  */
 /*
  * IAMROOT, 2021.09.09:
@@ -946,6 +957,32 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	ret					// to __primary_switch()
 0:
 #endif
+/*
+ * IAMROOT, 2021.09.10:
+ * - CONFIG_RELOCATABLE, CONFIG_RANDOMIZE_BASE on시
+ *   __primary_switch ~ start_kernel 사이의
+ *   kimage_vaddr, kimage_voffset, init_pg_dir 변화 과정
+ *
+ *                         kimage_vaddr  | kimage_voffset | init_pg_dir
+ * ----------------------+---------------+----------------+-------------
+ * __primary_switch      | va(_text)     | 계산전         | 
+ * ----------------------+---------------+----------------+-------------
+ * __relocate_kernel(1)  | rel va(_text) | 계산전         | 
+ * ----------------------+---------------+----------------+-------------
+ * __primary_switched(1) | rel va(_text) | rel va(_text)  | 
+ *                       |               | -   pa(_text)  |
+ * ----------------------+---------------+----------------+-------------
+ * __create_page_tables  | rel va(_text) | rel va(_text)  | + offset
+ *                       |               | -   pa(_text)  |
+ * ----------------------+---------------+----------------+-------------
+ * __relocate_kernel(2)  | rel, offset   | rel va(_text)  | + offset
+ *                       | va(_text)     | -   pa(_text)  |
+ * ----------------------+---------------+----------------+-------------
+ * __primary_switched(2) | rel, offset   | rel, offset    | + offset
+ *                       | va(_text)     | va(_text)      | 
+ *                       |               | -   pa(_text)  |
+ * ----------------------+---------------+----------------+-------------
+ */                                             
 /*
  * IAMROOT, 2021.09.04:
  * 위 코드에서 stack에 값2개를 push했었지만 CONFIG_RANDOMIZE_BASE가
@@ -1992,17 +2029,6 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 #endif
 /*
  * IAMROOT, 2021.09.04:
- * - b label을 쓰면 안되는이유.
- *   __primary_switch의 코드들은 idmap_pg_dir에 매핑하여 동작하는 코드이고,
- *   __primary_switched의 코드들은 init_pg_dir에 매핑하여 동작하는 코드라서
- *   두 코드간의 거리가 매우 멀다. 이렇게 long distance jump를 위해서는
- *   b 명령 대신 레지스터를 사용하는 br 명령을 사용한다.
- *
- *   __primary_switched는 .init.text section에 존재하고
- *   __primary_switch는 .idmap.text section에 존재한다.
- *
- *   kernel의 가상주소를 이용해서 branch를 하게 되있다.
- *
  * - ldr, adr 차이
  *   1) ldr x0, label
  *      label에 위치한 8바이트 값을 로드한다.
@@ -2010,7 +2036,59 @@ SYM_FUNC_START_LOCAL(__primary_switch)
  *      pesudo-insutruction 으로 컴파일러가 label 주소를 8바이트에 담아두고,
  *      이를 읽어오는 코드를 만들어낸다. 즉, 컴파일 타임의 label 주소를 알아온다.
  *   3) adr x0, label
- *      런타임에 label 주소를 알아온다.
+ *      compile time에는 pc에서 label까징의 offset을 계산해 저장해 놓고,
+ *      런타임에는 런타임 당시 pc + offset으로 주소를 알아온다.
+ *
+ * ---------------------------------------------------------------------------
+ *
+ * - 현재 상황을 정리하면 다음과 같다.
+ *   - 현재 __primary_switch내부에 있다. section은 .idmap.text
+ *   - mmu는 on or off인 상태
+ *   - __primary_switched는 .init.text section에 존재한다.
+ *   - mmu가 on인 경우 ttbr0_el1에서 동작
+ *
+ * - mmu on / off에 따른 pc와 ttbrX_el1의 해석
+ *
+ *   현재 위치인 __primary_switch 은 .idmap.texts section에 존재하며, 이 섹션은
+ *   가상주소와 물리주소가 1:1 매칭이되는 영역이고 ttbr0_el1에 설정되 있다.
+ *
+ *   mmu가 on / off에 따라 pc의 정의를 다음과 같이 생각할수 있다.
+ *
+ *   mmu가 off : 여지껏 그래왔던 것처럼 pc는 물리주소인 상태,
+ *   mmu가 on : pc는 ttbrX_el1으로 계산되는 mmu를 거친 주소.
+ *   
+ *   즉 __primary_switch에서 mmu on /off에따라 pc가 변하지는 않지만 그 의미가
+ *   달라진다. pc가 물리주소인 경우에는 여지껏 해왔던것처럼 compile time때
+ *   미리 계산된 offset으로 사용해서 다른 section으로 넘어가는게 가능했지만
+ *   .idmap.text에서 만큼은 pc가 가상주소인 경우에는 함부로 할수가 없다.
+ *   .idmap.text외엔 다른 section은 ttbr1_el1에 연결되어 있기 때문이다.
+ *
+ *   ttbr0_el1 : idmap_pg_dir(.idmap.text)가 연결되어있음.
+ *   ttbr1_el1 : init_pg_dir(kernel image)가 연결되있음.
+ *
+ *   그러므로 __primary_switch에서 mmu가 off인 상태거나 점프하는 함수가
+ *   같은 섹션(.idmap.text)이라면 b, bl을 사용해서 그냥 점프하면 되지만,
+ *   mmu가 on이되면 에 다른 섹션으로 점프하는 경우에는 ttbr1_el0에서
+ *   ttbr1_el1으로 이동을 해야되므로 offset을 사용하지 말고 해당 함수의
+ *   가상주소값 그자체를 가져와서 점프를 하여 ttbr1_el1으로 이동하는 개념으로
+ *   사용해야된다.
+ *
+ * 즉 ldr 을 사용해서 __primary_switched로 넘어가는 것은 다음과 같이 정리된다.
+ *
+ * 현재 위치 ||    section  | ttbrX_el1 | pc 
+ * ----------++------------+-----------+--------------------------------
+ *  점프 전  || .idmap.text | ttbr0_el1 | ttbr0_el1의 주소 체계
+ * ----------++------------+-----------+--------------------------------
+ *  점프 후  || .init.text  | ttbr1_el1 | ttbr1_el1의 주소 체계
+ *           ||             |           | (relocate, randomized 설정됨)
+ * ----------++------------+-----------+--------------------------------
+ *
+ * - __primary_switch에서 mmu on /off에 따른 b, bl정리
+ *   bl __enable_mmu : mmu off인상태이므로 b, bl가능
+ *   bl __relocate_kernel : mmu on이지만 같은 section이므로 b, bl 가능
+ *   bl __create_page_tables : mmu off상태이므로 b, bl 사용가능
+ *   blr x8(__primary_switched 점프) : mmu on상태에서 __primary_switch가 다른
+ *    섹션에 위치하므로 가상주소 전체를 불러와서 점프.
  */
 	ldr	x8, =__primary_switched
 	adrp	x0, __PHYS_OFFSET
