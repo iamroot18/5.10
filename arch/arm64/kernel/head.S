@@ -2057,11 +2057,8 @@ SYM_FUNC_START_LOCAL(__primary_switch)
  *   mmu가 off : 여지껏 그래왔던 것처럼 pc는 물리주소인 상태,
  *   mmu가 on : pc는 ttbrX_el1으로 계산되는 mmu를 거친 주소.
  *   
- *   즉 __primary_switch에서 mmu on /off에따라 pc가 변하지는 않지만 그 의미가
- *   달라진다. pc가 물리주소인 경우에는 여지껏 해왔던것처럼 compile time때
- *   미리 계산된 offset으로 사용해서 다른 section으로 넘어가는게 가능했지만
- *   .idmap.text에서 만큼은 pc가 가상주소인 경우에는 함부로 할수가 없다.
- *   .idmap.text외엔 다른 section은 ttbr1_el1에 연결되어 있기 때문이다.
+ *   즉 .idmap.text외에 다른섹션은 ttbr1_el1에 연결되므로 주소값이 완전 다른
+ *   체계를 가지되 .idmap.text와의 offset이 매우 커진다.
  *
  *   ttbr0_el1 : idmap_pg_dir(.idmap.text)가 연결되어있음.
  *   ttbr1_el1 : init_pg_dir(kernel image)가 연결되있음.
@@ -2084,11 +2081,13 @@ SYM_FUNC_START_LOCAL(__primary_switch)
  * ----------++------------+-----------+--------------------------------
  *
  * - __primary_switch에서 mmu on /off에 따른 b, bl정리
- *   bl __enable_mmu : mmu off인상태이므로 b, bl가능
- *   bl __relocate_kernel : mmu on이지만 같은 section이므로 b, bl 가능
- *   bl __create_page_tables : mmu off상태이므로 b, bl 사용가능
+ *   bl __enable_mmu : mmu off인상태이므로 offset이 작기때문에 b, bl가능
+ *   bl __relocate_kernel : mmu on이지만 offset이 작기때문에
+ *                          (section이므로) b, bl 가능
+ *   bl __create_page_tables : mmu off상태이고 offset이 작아
+ *                             b, bl 사용가능
  *   blr x8(__primary_switched 점프) : mmu on상태에서 __primary_switch가 다른
- *    섹션에 위치하므로 가상주소 전체를 불러와서 점프.
+ *    섹션에 위치하므로 offset이 매우커 가상주소 전체를 불러와서 점프.
  */
 	ldr	x8, =__primary_switched
 	adrp	x0, __PHYS_OFFSET

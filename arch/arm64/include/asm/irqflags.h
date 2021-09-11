@@ -44,7 +44,17 @@ static inline void arch_local_irq_enable(void)
 
 	pmr_sync();
 }
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - daifset : pstate register 에서 daif만 따서 만든 register.
+ *             해당 register에서는 [9:6]을 사용하는데 #2는 7bit를 set한다는것
+ *             즉 irq만을 disable한다.
+ * - daifset[9] : D. debug
+ * - daifset[8] : A. SError
+ * - daifset[7] : I. IRQ
+ * - daifset[6] : F. FIQ
+ *             
+ */
 static inline void arch_local_irq_disable(void)
 {
 	if (system_has_prio_mask_debugging()) {

@@ -5625,7 +5625,21 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
 
 	mutex_unlock(&cgroup_mutex);
 }
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - 참고
+ *   https://hwwwi.tistory.com/12
+ *   https://0xdf.gitlab.io/img/ENo1dPRWsAA1CQE.png
+ *   https://access.redhat.com/documentation/ko-kr/red_hat_enterprise_linux/6/html/resource_management_guide/ch01
+ * - cgroup이란 ?
+ *   memory, cpu, network등의 자원을 특정 process, task, 사용자등을 그룹화하여
+ *   할당하는 기능
+ *
+ * - 앞으로 분석하개될 cgroup subsystem
+ *   cpu(% 개념), cpuset(core 개수 개념), memory
+ *
+ * - 각 subsystem에 기본적이것만 초기화시킴
+ */
 /**
  * cgroup_init_early - cgroup initialization at system boot
  *
@@ -5634,6 +5648,10 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
  */
 int __init cgroup_init_early(void)
 {
+/*
+ * IAMROOT, 2021.09.11:
+ * - __initdata : include/linux/init.h
+ */
 	static struct cgroup_fs_context __initdata ctx;
 	struct cgroup_subsys *ss;
 	int i;

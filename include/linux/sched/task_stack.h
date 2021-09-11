@@ -8,7 +8,11 @@
 
 #include <linux/sched.h>
 #include <linux/magic.h>
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - thread_info가 task 안에 있는 경우 stack을 그대로 사용한다.
+ *   그렇지 않은 경우엔 thread_info가 stack에 존재하기 때문에 그거를 고려한다.
+ */
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 
 /*
@@ -49,6 +53,10 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
  */
 static inline unsigned long *end_of_stack(struct task_struct *p)
 {
+/*
+ * IAMROOT, 2021.09.11:
+ * - arm, arm64는 보통 GROW DOWN이다
+ */
 #ifdef CONFIG_STACK_GROWSUP
 	return (unsigned long *)((unsigned long)task_thread_info(p) + THREAD_SIZE) - 1;
 #else

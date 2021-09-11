@@ -193,6 +193,12 @@ u64 __init kaslr_early_init(u64 dt_phys)
 		 * 4 GB of the module region.
 		 */
 		return offset % SZ_2G;
+/*
+ * IAMROOT, 2021.09.11:
+ * - CONFIG_RANDOMIZE_MODULE_REGION_FULL 이 on이면 2G 범위에서 module의 랜덤
+ *   위치를 정하고, off라면 MODULES_VSIZE(128MB) 내에서 module의 랜덤위치를
+ *   정한다.
+ *  */
 	if (IS_ENABLED(CONFIG_RANDOMIZE_MODULE_REGION_FULL)) {
 		/*
 		 * Randomize the module region over a 2 GB window covering the
@@ -217,6 +223,11 @@ u64 __init kaslr_early_init(u64 dt_phys)
 		module_alloc_base = (u64)_etext + offset - MODULES_VSIZE;
 	}
 
+/*
+ * IAMROOT, 2021.09.11:
+ * - seed값의 2MB이하 값 추출하여 module_range을 곱해서 2MB align을 한 값을
+ *   2MB로 나눈다. 그 후 module_alloc_base에 적용하고 PAGE_MASK 시킨다.
+ */
 	/* use the lower 21 bits to randomize the base of the module region */
 	module_alloc_base += (module_range * (seed & ((1 << 21) - 1))) >> 21;
 	module_alloc_base &= PAGE_MASK;

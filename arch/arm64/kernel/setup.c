@@ -87,6 +87,10 @@ u64 __cacheline_aligned boot_args[4];
 
 void __init smp_setup_processor_id(void)
 {
+/*
+ * IAMROOT, 2021.09.11:
+ * - cpu 0번이면 mpidr 0인경우가 많지만 아닌 경우도 있으니 참고
+ */
 	u64 mpidr = read_cpuid_mpidr() & MPIDR_HWID_BITMASK;
 	set_cpu_logical_map(0, mpidr);
 
@@ -276,7 +280,11 @@ static int __init reserve_memblock_reserved_regions(void)
 	return 0;
 }
 arch_initcall(reserve_memblock_reserved_regions);
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - logical cpu to mpdir mapping.
+ *   kernel code는 전부 logical cpu를 쓴다.
+ */
 u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
 
 u64 cpu_logical_map(int cpu)

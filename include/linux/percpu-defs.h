@@ -35,7 +35,10 @@
 #define PER_CPU_FIRST_SECTION ""
 
 #endif
-
+/*
+ * IAMROOT, 2021.09.11:
+ * -
+ */
 /*
  * Base implementations of per-CPU variable declarations and definitions, where
  * the section in which the variable is to be placed is provided by the
@@ -110,7 +113,11 @@
  */
 #define DECLARE_PER_CPU(type, name)					\
 	DECLARE_PER_CPU_SECTION(type, name, "")
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - SMP의 경우 .data..percpu을 사용하는데 그곳에 정의하고
+ *   UP의 경우엔 .data 에 정의 된다.
+ */
 #define DEFINE_PER_CPU(type, name)					\
 	DEFINE_PER_CPU_SECTION(type, name, "")
 

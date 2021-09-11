@@ -39,7 +39,17 @@
 	__asm__ ("" : "=r"(__ptr) : "0"(ptr));				\
 	(typeof(ptr)) (__ptr + (off));					\
 })
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - retpoline 참고 :https://blog.alyac.co.kr/1479
+ * - __indirect_branch__('choice')
+ * On x86 targets, the indirect_branch attribute causes the compiler
+ * to convert indirect call and jump with choice. ‘keep’ keeps indirect call
+ * and jump unmodified. ‘thunk’ converts indirect call and jump to call and
+ * return thunk. ‘thunk-inline’ converts indirect call and jump to inlined call
+ * and return thunk. ‘thunk-extern’ converts indirect call and jump to
+ * external call and return thunk provided in a separate object file.
+ */
 #ifdef CONFIG_RETPOLINE
 #define __noretpoline __attribute__((__indirect_branch__("keep")))
 #endif
@@ -50,7 +60,15 @@
 
 #define __compiletime_warning(message) __attribute__((__warning__(message)))
 #define __compiletime_error(message) __attribute__((__error__(message)))
-
+/*
+ * IAMROOT, 2021.09.11:
+ * 참고 : https://pincette.tistory.com/12
+ * This gcc plugin generates some entropy from program state throughout
+ * the uptime of the kernel. It has small performance loss.
+ * The plugin uses an attribute which can be on a function
+ * (to extract entropy beyond init functions) or on a variable
+ * (to initialize it with a random number generated at compile time) 
+ */
 #if defined(LATENT_ENTROPY_PLUGIN) && !defined(__CHECKER__)
 #define __latent_entropy __attribute__((latent_entropy))
 #endif
@@ -112,7 +130,10 @@
 #elif GCC_VERSION >= 40902
 #define KASAN_ABI_VERSION 3
 #endif
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - sanitize address option이 켜졋을시 사용안하게 하는것.
+ */
 #if __has_attribute(__no_sanitize_address__)
 #define __no_sanitize_address __attribute__((no_sanitize_address))
 #else

@@ -10,7 +10,13 @@
 #include <asm/alternative.h>
 #include <asm/cmpxchg.h>
 #include <asm/stack_pointer.h>
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - tpidr_el1 : 자유롭게 쓸수있는 register. cpu마다 있다.
+ *               커널에서는 per cpu offset을 담고 있다.
+ *               자신의 offset을 저장하는 개념.
+ * - 처음엔 tpidr_el1을 쓰다가 cpu에 nVHE feature가 있으면 tpidr_el2로 교체한다.
+ */
 static inline void set_my_cpu_offset(unsigned long off)
 {
 	asm volatile(ALTERNATIVE("msr tpidr_el1, %0",

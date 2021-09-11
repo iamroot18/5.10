@@ -844,7 +844,16 @@ void __init __weak arch_call_rest_init(void)
 {
 	rest_init();
 }
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - __visible
+ *   compile 최적화 때문에 안쓰는 함수를 global export를 안할수 있는데
+ *   이를 방지하기위해 linker한테 알려주는 역할
+ *   
+ * - __no_sanitize_address
+ *   sanitize address 관련 option이 켜져있을때 start_kernel은 영향을 안받게
+ *   하기 위함.
+ */
 asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 {
 	char *command_line;

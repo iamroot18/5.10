@@ -34,7 +34,14 @@ void apply_alternatives_module(void *start, size_t length);
 #else
 static inline void apply_alternatives_module(void *start, size_t length) { }
 #endif
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - .word 661b - . : oldinstr 시작주소에서 이 위치까지의 offset
+ * - .word 663f - . : newinstr 시작주소에서 이 위치까지ㅏ의 offset
+ * - .byte 662b-bb1b : oldinstr의 크기
+ * - .byte 664f-663f : newinstr의 크기
+ *
+ */
 #define ALTINSTR_ENTRY(feature)					              \
 	" .word 661b - .\n"				/* label           */ \
 	" .word 663f - .\n"				/* new instruction */ \
@@ -48,7 +55,17 @@ static inline void apply_alternatives_module(void *start, size_t length) { }
 	" .hword " __stringify(feature) "\n"		/* feature bit     */ \
 	" .byte 662b-661b\n"				/* source len      */ \
 	" .byte 664f-663f\n"				/* replacement len */
-
+/*
+ * IAMROOT, 2021.09.11:
+ * - newinstr과 oldinstr의 크기가 같지 않으면 error
+ * - booting할때는 old명령으로 실행되며 부팅이 완료된 후 조건에 따라서
+ *   (cpu가 feature를 가지고있는지, kernel option지원 여부) old를 쓸지
+ *   new를 쓸지를 정해서 replace를 한다.
+ * - subsecion 1 을 쓰는 이유
+ *   Git blame을 참고. 원래는 altinstructions_replacement를 사용했는데
+ *   매우 큰 kernel에서 문제가 생겨 현재 사용하는 section근처에 생성되는
+ *   subsection을 사용하는걸로 바꿈
+ */
 /*
  * alternative assembly primitive:
  *
