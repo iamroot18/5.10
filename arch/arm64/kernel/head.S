@@ -473,13 +473,6 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
  * IAMROOT, 2021.08.14:
  * 커널용 페이지 테이블에 대한 캐시를 모두 invalidate
  *
- * - adrp 명령어를 사용한 이유
- *   init_pg_dir은 link script에 의해 주소가 페이지 크기만큼 정렬된다.
- *   그러므로 하위 12 bits를 추가로 처리하는 adr_l 대신 adrp 명령어로도
- *   커버가 가능하다.
- * - 페이지 크기가 4K가 아니면?
- *   16K, 64K 모두 4의 배수이므로 4K 페이지 처리 명령어인 adrp로도 가능하다.
- *
  * - arch/arm64/kernel/vmlinux.lds.S
  *
  *   . = ALIGN(PAGE_SIZE);
@@ -913,11 +906,6 @@ SYM_FUNC_START_LOCAL(__primary_switched)
  *   첫번째 진입할때에는 randomized가 되기 전인 relocate만 한 va(_text)이고,
  *   이후 뒷 code에서 kaslr_early_init의 결과값으로 주어진 random offset을
  *   사용해서 다시 relocate된 kimage_vaddr을 사용해서 offset을 다시 구한다.
- */
-/*
- * IAMROOT, 2021.09.09:
- * - x0은 idmap 코드 실행중 저장한 _va(__PHYS_OFFSET) 값이고 _pa(__PHYS_OFFSET)와
- *   같다. 따라서 '_va(_text) - _pa(_text) = offset'로 해석할 수 있다.
  */
 	ldr_l	x4, kimage_vaddr		// Save the offset between
 	sub	x4, x4, x0			// the kernel virtual and

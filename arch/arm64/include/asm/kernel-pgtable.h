@@ -118,7 +118,7 @@
 			+ EARLY_PMDS((vstart), (vend)))	/* each PMD needs a next level page table */
 /*
  * IAMROOT, 2021.08.14: 
- * - 초기 커널 페이지 테이블 init_pg_dir과 idmpa_pg_dir용 사이즈를 산출한다.
+ * - 초기 커널 페이지 테이블 init_pg_dir과 idmap_pg_dir용 사이즈를 산출한다.
  *   early 페이지로 계산한다.
  *
  * - 4K, 약 30M 단위인 경우

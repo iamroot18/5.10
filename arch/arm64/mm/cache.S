@@ -196,8 +196,14 @@ SYM_FUNC_START_PI(__inval_dcache_area)
 	dcache_line_size x2, x3
 
 /* IAMROOT, 2021.07.17: 
+ * - x0: start address
+ * - x1: end address
+ * - x2: cache line size
+ *
  * End line aligned를 체크하기 위해서 수행하는 인스트럭션
- * 인스트럭션 결과로 모든 Bit가 Set
+ * 인스트럭션 결과로 하위 모든 Bit가 Set
+ *
+ * 예) x3 = 0x3F (0x40 - 1) -> (x2가 64인 경우)
  */
 	sub	x3, x2, #1
 
@@ -209,7 +215,13 @@ SYM_FUNC_START_PI(__inval_dcache_area)
 	tst	x1, x3				// end cache line aligned?
 
 /* IAMROOT, 2021.07.17: 
- * bic r0, r1, r2 : r1 & ~r2 의 결과에서 1을 다 Clear한 후 r0에 저장
+ * bic x0, x1, x2 : x1 & ~x2 의 결과에서 1을 다 Clear한 후 x0에 저장
+ *
+ * 예) cache line size = 64 bytes
+ *   x1 = 0x0402_0321 (unaligned)
+ *   x3 = 0xFFFF_FFC0 (~0x3F)
+ *   -------- AND -------------
+ *   x1 = 0x0402_0300 (aligned)
  */
 	bic	x1, x1, x3
 
