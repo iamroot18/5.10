@@ -5635,7 +5635,7 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
  *   memory, cpu, network등의 자원을 특정 process, task, 사용자등을 그룹화하여
  *   할당하는 기능
  *
- * - 앞으로 분석하개될 cgroup subsystem
+ * - 앞으로 분석하게 될 cgroup subsystem.
  *   cpu(% 개념), cpuset(core 개수 개념), memory
  *
  * - 각 subsystem에 기본적이것만 초기화시킴

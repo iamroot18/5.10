@@ -12,6 +12,7 @@
  * IAMROOT, 2021.09.11:
  * - thread_info가 task 안에 있는 경우 stack을 그대로 사용한다.
  *   그렇지 않은 경우엔 thread_info가 stack에 존재하기 때문에 그거를 고려한다.
+ *   (include/linux/sched.h thread_union 주석 참고)
  */
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 
@@ -27,6 +28,11 @@ static inline void *task_stack_page(const struct task_struct *task)
 
 #define setup_thread_stack(new,old)	do { } while(0)
 
+/*
+ * IAMROOT, 2021.09.14:
+ * CONFIG_THREAD_INFO_IN_TASK on. task_info는 struct task안에 존재 하므로
+ * thread_stack엔 아무것도 없다. 첫주소가 stack의 끝이다.
+ */
 static inline unsigned long *end_of_stack(const struct task_struct *task)
 {
 	return task->stack;
@@ -42,6 +48,25 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
 	task_thread_info(p)->task = p;
 }
 
+/*
+ * IAMROOT, 2021.09.14:
+ * CONFIG_THREAD_INFO_IN_TASK off. task_info는 stack의 시작지부터 존재한다.
+ * 
+ * -GROW UP
+ *  task_thread_info(p)를 통해서 task_info의 시작번지를 구해오는데, 이 시작
+ *  번지 자체가 stack의 시작번지이므로, stack의 end는 자연스럽게
+ *  THREAD_SIZE -1로 하면 나온다.
+ *
+ * +--------- stack ---------------------------------------> TASK_SIZE
+ * +--task_info ->|stack start                             | stack end
+ *
+ * -GROW DOWN
+ *  task_thread_info(p)를 통해서 task_info의 시작번지를 구해오는데, 여기에 +1
+ *  을하여 thread_info의 끝주소를 구해오며, 이 끝주소가 stack의 end 주소가된다.
+ *
+ * +--------- stack ---------------------------------------> TASK_SIZE
+ * +--task_info ->|stack end                               | stack start
+ */
 /*
  * Return the address of the last usable long on the stack.
  *

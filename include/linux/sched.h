@@ -1712,12 +1712,12 @@ void yield(void);
 /*
  * IAMROOT, 2021.09.04:
  *
- * INIT_TASK_DATA, __init_thread_info, init_task를 종합적으로 살펴보면
+ * INIT_TASK_DATA, init_thread_info, init_task를 종합적으로 살펴보면
  * 다음과 같다.
  *
  * ====================================================================
  *
- * CONFIG별 thread_info, task위치
+ * CONFIG별 thread_info, task위치 (stack start, end는 GROW DOWN 기준)
  *
  * on,off / on,off : CONFIG_ARCH_TASK_STRUCT_ON_STACK/CONFIG_THREAD_INFO_IN_TASK
  *

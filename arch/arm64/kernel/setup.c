@@ -89,7 +89,7 @@ void __init smp_setup_processor_id(void)
 {
 /*
  * IAMROOT, 2021.09.11:
- * - cpu 0번이면 mpidr 0인경우가 많지만 아닌 경우도 있으니 참고
+ * - cpu 0번이면 mpidr 0인경우가 많지만 아닌 경우도 있다.
  */
 	u64 mpidr = read_cpuid_mpidr() & MPIDR_HWID_BITMASK;
 	set_cpu_logical_map(0, mpidr);
