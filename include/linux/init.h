@@ -45,6 +45,100 @@
  * section.
  */
 
+/*
+ * IAMROOT, 2021.09.18:
+ *
+ * __section(.init.text): .init.text(초기화 함수용 영역)영역에 해당 함수를 배치.
+ *
+ * __cold: 이 함수는 실행될 가능성이 작다는 것을 커널에 알림. (속도보다는 메모리 최적화에 이용)
+ *
+ * __latent_entropy:
+ *   커널에서 모든 randomness의 근원은 entropy pool이다. 대략 4,096 bits의 아주 큰 숫자가
+ *   커널 메모리에 private하게 보존되어 있다. 다시 말하면 2^4096 개의 숫자를 표현할 수 있으며
+ *   4,096 bits의 엔트로피까지 포함할 수 있다고 표현한다. entropy pool은 두가지 용도로 사용된다.
+ *   1. Random number가 entropy pool을 기반으로 생성된다.
+ *   2. entropy를 entropy pool에 주입한다.
+ *   Random number가 생성될 때 마다 entropy pool의 entropy는 감소한다. 왜냐하면 Random number를
+ *   받는 쪽에서 pool자체에 대한 일부 정보를 갖게 되기 때문이다. 따라서 충분한 randomness를 보장
+ *   하기 위해서는 entropy를 보충하는 일이 매우 중요하다.
+ *   entropy를 보충하기 위한 하나의 방법으로서 __latent_entropy라는 플래그가 사용된다.
+ *   이런 초기화 함수 외에도 HW 인터럽트 시에도 entropy를 보충하는 방법들을 사용한다고 한다.
+ *
+ * __noinitretpoline:
+ *   CPU의 보안 취약점인 Spectre의 대책으로서 Retpoline을 사용하지 않겠다는 의미이다.
+ *   초기화 코드에서는 Spectre의 영향을 받지 않기 때문에, performance가 저하되는
+ *   Retpoline을 회피하기 위한 것이다.
+ *
+ * Retpoline은 무엇인가?
+ *   우선 indirect branch의 최적화와 그에 따른 부작용에 대해서 알아야한다.
+ *
+ *   mov ebx, dest_address
+ *   jmp ebx
+ *
+ *   예를 들어서 위와 같은 것이 하나의 indirect branch의 예가 될 것이다.
+ *   위의 jmp명령이 loop안에서 반복해서 실행된다고 생각해 보자. 이 경우에
+ *   jmp의 target address를 예측하는 것은 pipeline 성능에 있어서 굉장히 중요하다.
+ *   따라서 BTB (Branch Target Buffer)라는 것에다가 jmp ebx 명령의 instruction 주소와
+ *   이전 target address를 매핑시켜 놓는다. 만약에 다시 한 번 jmp ebx 명령이 실행 되면
+ *   target address를 BTB에서 predict해서 바로 fetch시키게 되는 것이다.
+ *
+ *   여기서 BHB(Branch History Buffer) 라는 개념도 등장하게 되는데, 이거는
+ *   이전의 예측이 맞았는지 틀렸는지를 기록하는 buffer라고 생각할 수 있다.
+ *
+ *   이제 이 BTB와 BHB가 attacker에 의해서 어떻게 이용될 수 있는지를 알아보자.
+ *   BTB와 BHB는 CPU의 내부에 한개씩 밖에 존재하지 않는다고 한다. 이를 다시 말하면
+ *   커널모드와 유저모드를 구별하지 않는 다는 말이다. 만약에, attacker가 유저모드에서
+ *   BTB와 BHB를 자기가 원하는 방향으로 학습시킨다면 어떻게 될까? 여기에 그 취약점이
+ *   있는 것이다.
+ *
+ *   이를 해결하기 위해 나온 것이 Retpoline이다.
+ *   이를 이해하기 위해서는 ROP (Return Oriented Programming)의 개념을 이해할 필요가 있다.
+ *
+ *   push addr_1	// ①
+ *   call addr_2	// ②
+ *   addr_1:	xxxxx...	// ③
+ *   :
+ *   :
+ *   addr_2:	yyyyy.....	// ④
+ *   :
+ *   ret		// ⑤
+ *
+ *   위의 프로그램의 실행순서는 1->2->4->5->3이다. 2에서 addr_2를 call하기 전에
+ *   1에서 addr_1의 주소를 스택에 push해 두었다. 따라서 5에서 addr_2이 ret하게 되면
+ *   call하기 직전에 스택에 쌓여있는 주소 addr_1으로 jump하게 되는 것이다.
+ *
+ *   push addr_1	// ①
+ *   push addr_2	// ②
+ *   push addr_3	// ③
+ *   :
+ *   ret		// ④
+ *   addr_1:	xxxxx...	// ⑤
+ *   :
+ *   ret		// ⑥
+ *   addr_2:	yyyyy.....	// ⑦
+ *   :
+ *   ret		// ⑧
+ *   addr_2:	zzzzz.....	// ⑨
+ *   :
+ *   ret		// ⑩
+ *
+ *   위의 프로그램의 실행순서는 1->2->3-> ... ->10이다.
+ *   이렇게 Stack에 들어있는 return address를 이용하게 되면 BTB, BTH를 사용하지 않고
+ *   RSB(Return Stack Buffer)라 불리는 다른 종류의 buffer를 사용하기 때문에 위의
+ *   취약점을 해결할 수 있다고 한다.
+ *
+ *   __attribute__((__indirect_branch__("keep"))) -> Retpoline을 사용하지 않음.
+ *   __attribute__((__indirect_branch__("thunk"))) -> Retpoiine을 사용함.
+ *
+ *   keep은 위의 jmp명령을 사용하는 것이고
+ *   thunk는 위의 ret명령을 사용하는 것이라고 생각하면 될 것 같다.
+ *
+ *   GCC 컴파일러가 위의 attribute에 따라 의도에 맞는 코드를 생성해 줄 것이다.
+ *
+ *   https://debimate.jp/2019/04/29/
+ *   https://blog.cloudflare.com/ensuring-randomness-with-linuxs-random-number-generator/
+ *   https://pc.watch.impress.co.jp/docs/topic/feature/1176718.html
+ */
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
 #define __init		__section(".init.text") __cold  __latent_entropy __noinitretpoline
