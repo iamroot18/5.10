@@ -19,7 +19,9 @@
  * - tpidr: Thread ID Information Register
  *   여기서 Thread는 H/W Thread를 의미한다 (Hyper-Threading)
  *
- * - 처음엔 tpidr_el1을 쓰다가 cpu에 nVHE feature가 있으면 tpidr_el2로 교체한다.
+ * - CONFIG_ARM64_VHE가 define되어 있으면 tpidr_el2에 off값을,
+ *   그렇지 않으면 tpidr_el1에 off값을 쓴다.
+ *   참고: arch/arm64/kernel/cpufeature.c 에서 arm64_features.
  */
 static inline void set_my_cpu_offset(unsigned long off)
 {
