@@ -9,7 +9,13 @@
 
 #ifndef __ASM_ATOMIC_LSE_H
 #define __ASM_ATOMIC_LSE_H
-
+/*
+ * IAMROOT, 2021.09.18:
+ * - asm_op : asm 이 만들어질때 실제 op에 해당하는 instruction
+ * - [n] : n에 해당하는 register 번호
+ *   [i] : 인자 i(값)가 할당된 register 번호
+ *   [v] : v->counter(주소)가 할당된 register 번호
+ */
 #define ATOMIC_OP(op, asm_op)						\
 static inline void __lse_atomic_##op(int i, atomic_t *v)			\
 {									\
@@ -26,7 +32,12 @@ ATOMIC_OP(xor, steor)
 ATOMIC_OP(add, stadd)
 
 #undef ATOMIC_OP
-
+/*
+ * IAMROOT, 2021.09.18:
+ * - ex. ATOMIC_FETCH_OPS(add, ldadd)
+ *   asm instruction이 mb에 따라 다음과 같이 된다. ((없음), a, l, al)
+ *   ldadd, ldadda, ldaddl, ldaddal
+ */
 #define ATOMIC_FETCH_OP(name, mb, op, asm_op, cl...)			\
 static inline int __lse_atomic_fetch_##op##name(int i, atomic_t *v)	\
 {									\
@@ -336,7 +347,17 @@ static inline s64 __lse_atomic64_dec_if_positive(atomic64_t *v)
 
 	return (long)v;
 }
-
+/*
+ * IAMROOT, 2021.09.18:
+ * - cas : compare and swap
+ *
+ * - CAS Xs, Xt, [Xn|SP] : 64bit
+ *   CAS{B|H|} Ws, Wt, [Xn|SP] : 8, 16, 32bit
+ *   Xt or Wt 값 <- [Xn|SP] (load and compare)
+ *   [Xn|SP] <- Xs or Ws 값 (store when true)
+ *   어떤 메모리주소에 있는 값을 읽어오면서 읽어온값과 Xt값과 비교해
+ *   동일할때에만 새로운 값(Xs)을 기록하며, 이 과정이 atomic으로 이루어진다.
+ */
 #define __CMPXCHG_CASE(w, sfx, name, sz, mb, cl...)			\
 static __always_inline u##sz						\
 __lse__cmpxchg_case_##name##sz(volatile void *ptr,			\

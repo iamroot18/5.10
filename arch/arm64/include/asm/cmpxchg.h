@@ -12,7 +12,32 @@
 
 #include <asm/barrier.h>
 #include <asm/lse.h>
-
+/*
+ * IAMROOT, 2021.09.18:
+ * - CONFIG 및 CPU Feature 지원에 따라서 ll_sc, lse둘중 하나를 사용한다.
+ *
+ * - SWP Xs, Xt, [Xn|SP] : 64bit
+ *   SWP{B|H|} Ws, Wt, [Xn|SP] : 8, 16, 32bit
+ *   Xt or Wt 값 <- [Xn|SP] (load)
+ *   [Xn|SP] <- Xs or Ws 값 (store)
+ *   어떤 메모리주소에 있는 값을 읽어오면서 새로운 값을 기록하는데, 이 과정이
+ *   atomic으로 이루어진다.
+ *
+ * - 인자에 따라 다음과 같은 명령어가 만들어진다.
+ *   SWP,  SWPA,  SWPL,   SWPAL
+ *   SWPB, SWPAB, SWPALB, SWPLB
+ *   SWPH, SWPAH, SWPALH, SWPLH
+ *
+ * - swp의 기능 정리
+ *   swp(atomic) + a(acquire) / l(release) / al(acquire + release) / (없음)
+ *   + byte(b(1), h(2), 없음(4 or 8))
+ *   - ll_sc 일때는 al대신에 dmb를 써야한다.
+ * 
+ * - __nops 존재 이유 :
+ *   alternative를 할려면 code 크기가 똑같아야되는데 lse code는 실제 명령어가
+ *   1줄이므로 4줄로 확장하기위에 nop(3)을 넣은것. nop_lse도 마찬가지로
+ *   끝에 dmb가 오므로 공백을 넣기 위함이다.
+ */
 /*
  * We need separate acquire parameters for ll/sc and lse, since the full
  * barrier case is generated as release+dmb for the former and
@@ -228,7 +253,25 @@ __CMPXCHG_GEN(_mb)
 				  ptr1);					\
 	__ret;									\
 })
-
+/*
+ * IAMROOT, 2021.09.18:
+ * - sevl : send event to local cpu
+ * - wfe : wait for event. event register가 0일때는 wait. 1일때는 무조건 깨어남.
+ *   
+ * - sevl, wfe를 하는 이유
+ *   해당 code가 들어오기전에 이미 다른 곳에서 event stream등의 발생 이유로
+ *   event register가 차있을수도 있기떄문에,
+ *   무조건 한번 발생시키고 wfe를 함으로써 event register를 비우기 위함이다.
+ *   arm32까지만해도 wfe{cond} 명령어가 있었는데 없어지면서 이런방식을 쓰게됬다.
+ *
+ * - cbnz후에 wfe를 하는 이유
+ *   loop check를 할경우, sleep관련 명령어가 없을경우 1초에 몇억번을 수행할 수 있는데
+ *   이를 방지하기 위해 일종의 sleep 개념인 wfe를 사용하였다.
+ *   wfe는 다른 cpu의 event stream, sevl, 그리고 ldxr명령어를 통해서 깨어나게 되어
+ *   어느정도 sleep을 할 수 있는 환경을 만든다.
+ *
+ * - ldxr, eor, cbnz : *ptr과 val값이 동일하면 wait, 아니면 빠져나옴.
+ */
 #define __CMPWAIT_CASE(w, sfx, sz)					\
 static inline void __cmpwait_case_##sz(volatile void *ptr,		\
 				       unsigned long val)		\

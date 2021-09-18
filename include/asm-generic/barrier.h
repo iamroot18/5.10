@@ -119,7 +119,12 @@ do {									\
 	(typeof(*p))___p1;						\
 })
 #endif
-
+/*
+ * IAMROOT, 2021.09.18:
+ * - before_atomic, after_atomic
+ *   해당 barrier를 쓰기전, 혹은 쓴 후에 무슨 행동을 하는지 적어둔
+ *   주석같은개념
+ */
 #ifdef CONFIG_SMP
 
 #ifndef smp_store_mb

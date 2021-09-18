@@ -254,6 +254,11 @@ struct ftrace_likely_data {
  * __unqual_scalar_typeof(x) - Declare an unqualified scalar type, leaving
  *			       non-scalar types unchanged.
  */
+
+/*
+ * IAMROOT, 2021.09.18:
+ * - _Generic : type별 override x가 어떤 type인지를 확인
+ */
 /*
  * Prefer C11 _Generic for better compile-times and simpler code. Note: 'char'
  * is not type-compatible with 'signed char', and we define a separate case.

@@ -14,6 +14,18 @@
 #define __nops(n)	".rept	" #n "\nnop\n.endr\n"
 #define nops(n)		asm volatile(__nops(n))
 
+/*
+ * IAMROOT, 2021.09.18:
+ * - wfi : wait for interrupt
+ *   예를들어 0번 cpu가 wfi에 빠지면 다른 cpu가 IPI(inter process interrupt)를 통해
+ *   0번 cpu를 깨울때까지 기다린다는것. 안보내준다면 timer interrupt등을 통해서
+ *   깨어난다.
+ *
+ * - wfe : wait for event
+ *   sev나 주기적으로 event stream에 의해서 깨어나게된다.
+ *   
+ * - sev : send event
+ */
 #define sev()		asm volatile("sev" : : : "memory")
 #define wfe()		asm volatile("wfe" : : : "memory")
 #define wfi()		asm volatile("wfi" : : : "memory")
@@ -74,6 +86,11 @@ static inline unsigned long array_index_mask_nospec(unsigned long idx,
 #define __smp_rmb()	dmb(ishld)
 #define __smp_wmb()	dmb(ishst)
 
+/*
+ * IAMROOT, 2021.09.18:
+ * - store + release barrier
+ */
+
 #define __smp_store_release(p, v)					\
 do {									\
 	typeof(p) __p = (p);						\
@@ -109,6 +126,11 @@ do {									\
 	}								\
 } while (0)
 
+/*
+ * IAMROOT, 2021.09.18:
+ * - load + acquire barrier
+ */
+
 #define __smp_load_acquire(p)						\
 ({									\
 	union { __unqual_scalar_typeof(*p) __val; char __c[1]; } __u;	\
@@ -139,6 +161,10 @@ do {									\
 	}								\
 	(typeof(*p))__u.__val;						\
 })
+/*
+ * IAMROOT, 2021.09.18:
+ * -
+ */
 
 #define smp_cond_load_relaxed(ptr, cond_expr)				\
 ({									\
