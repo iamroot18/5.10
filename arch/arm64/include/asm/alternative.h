@@ -37,7 +37,7 @@ static inline void apply_alternatives_module(void *start, size_t length) { }
 /*
  * IAMROOT, 2021.09.11:
  * - .word 661b - . : oldinstr 시작주소에서 이 위치까지의 offset
- * - .word 663f - . : newinstr 시작주소에서 이 위치까지ㅏ의 offset
+ * - .word 663f - . : newinstr 시작주소에서 이 위치까지의 offset
  * - .byte 662b-bb1b : oldinstr의 크기
  * - .byte 664f-663f : newinstr의 크기
  *
