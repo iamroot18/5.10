@@ -95,3 +95,7 @@
 ### 16주차
 - 2021.09.11, Zoom 온라인(22명 참석)
 - start_kernel() 시작 - boot_cpu_init() 직전까지
+
+### 17주차
+- 2021.09.18, Zoom 온라인(22명 참석)
+- barrier, atomic
