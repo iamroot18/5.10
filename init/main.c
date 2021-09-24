@@ -122,6 +122,12 @@ extern void radix_tree_init(void);
  * operations which are not allowed with IRQ disabled are allowed while the
  * flag is set.
  */
+/* IAMROOT, 2021.09.16:
+ * 이 플래그를 통해 IRQ가 비활성화된 상태에서 부팅 프로세서만 실행되는
+ * 'early bootup code'에 있음을 알 수 있습니다. 이것은 두 가지를 의미합니다.
+ * 플래그가 지워지기 전에 IRQ가 활성화되어서는 안 되며 IRQ 비활성화로 허용되지
+ * 않는 일부 작업은 플래그가 설정되는 동안 허용됩니다.
+ */
 bool early_boot_irqs_disabled __read_mostly;
 
 enum system_states system_state __read_mostly;

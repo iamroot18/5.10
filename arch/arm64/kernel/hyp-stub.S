@@ -21,6 +21,10 @@
 
 	.align 11
 
+/*
+ * IAMROOT, 2021.08.20: 
+ * http://egloos.zum.com/rousalome/v/10024114
+ */
 SYM_CODE_START(__hyp_stub_vectors)
 	ventry	el2_sync_invalid		// Synchronous EL2t
 	ventry	el2_irq_invalid			// IRQ EL2t

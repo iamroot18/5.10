@@ -89,6 +89,10 @@
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-cold-function-attribute
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Label-Attributes.html#index-cold-label-attribute
  */
+/* IAMROOT, 2021.09.16:
+ * 함수의 cold 속성은 함수가 실행될 가능성이 낮다는 것을 컴파일러에 알리는 데
+ * 사용됩니다.  이 함수는 속도보다는 크기에 최적화되어 있습니다.
+ */
 #define __cold                          __attribute__((__cold__))
 
 /*
