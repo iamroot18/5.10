@@ -30,17 +30,23 @@ asm_ops "\n"								\
 #endif
 /*
  * IAMROOT, 2021.09.18:
- * - RMW(Read, Modify, Write)에서 Modify부분의 Op만 바꿔지면서 명령어가
- *   만들어지는게 보인다.
- * - __ll_sc_atomic_add 로 만들어지며 ll_sc 방식의 atomic add의 기능을 수행한다.
+ *   ------------
+ *   인자들에 대한 설명.
  *
+ * - op가 add인것을 예로들면, __ll_sc_atomic_add 로 만들어지며,
+ *   ll_sc 방식의 atomic add의 기능을 수행한다.
  * - asm_op : asm 이 만들어질때 실제 op에 해당하는 instruction
  * - constraint : I, J, K.. 등이 위치하며 인자의 범위를 나타냄.
+ * - RMW(Read, Modify, Write) foramt의 관점에서 봤을때,
+ *   Modify부분의 Op만 바꿔지면서 명령어가 만들어지는게 보인다.
  * - ex. ATOMIC_OPS(add, add, I)
  *   pst / l1 / strm : store를 위해 l1 cache에 해당 데이터를 미리 fetch한다.
  *   R : ldxr
  *   M : add
  *   W : stxr
+ *
+ *   ------------
+ *   asm 보충설명
  *
  * - r : 일반 register 사용
  * - = : write only
@@ -73,10 +79,15 @@ __ll_sc_atomic_##op(int i, atomic_t *v)					\
 }
 /*
  * IAMROOT, 2021.09.18:
- * - func_fetch : 계산 수행전 결과값을 return함
- * - func_return : 계산 수행후 결과값을 return함
+ * ----------
+ *  fetch vs return
  *
- * - ex. ATOMIC_OP_RETURN(        , dmb ish,  , l, "memory", __VA_ARGS__)\
+ * - {func}_fetch : 계산 수행전 결과값을 return함
+ * - {func}_return : 계산 수행후 결과값을 return함
+ *
+ * ----------
+ *  인자 설명. (ex. ATOMIC_OP_RETURN(    , dmb ish,  , l, "memory", __VA_ARGS__)
+ *
  * - name : barrier의 이름이 된다.
  * - mb : full barrier사용시 들어가는 memory barrier instruction
  * - acq : acquire 사용시 acquire에 대한 단방향 barrier.
@@ -89,12 +100,15 @@ __ll_sc_atomic_##op(int i, atomic_t *v)					\
  * - stlxr 은 l (단방향 release barrier) + x(atomic) 을 동시에 수행하는 명령
  *
  * ----------
- *  - lse 명령어와 full memory barrier의 차이
+ *  lse 명령어와 full memory barrier의 차이
+ *
  *  ll_sc는 full memory barrier로 dmb명령어를 쓰면 전체 memory에 대해서
  *  동작을 하는 반면, lse는 해당 instruction + al을 통해 해당 메모리에
  *  대해서만 full memory barrier로 동작해 훨신 이점이 있다.
  *
  * ----------
+ *  연산에 따른 function return 지원여부
+ *
  *  - add, sub에 대해서는 void, return, fetch가 다 제공되지만
  *  비트 연산에 대해서는 void, fetch만 제공된다. lse도 동일하다.
  */
