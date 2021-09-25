@@ -925,6 +925,21 @@ arch_atomic_try_cmpxchg(atomic_t *v, int *old, int new)
 #define arch_atomic_try_cmpxchg arch_atomic_try_cmpxchg
 #endif
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * - v->counter가 old 값과 같은 경우 new 값으로 교체를 시도한다.
+ *   (old=0(unlock), new=1(lock))
+ *
+ * - 누군가 먼저 lock을 획득한 경우 r 값에 1을 반환하여 온다.
+ *   이러한 경우 실패를 리턴한다.
+ *
+ * - _acquire 단방향 베리어를 사용한 이유
+ *   spin_unlock()에서 사용하는 smp_store_release() 명령과 같이 한 쌍으로
+ *   동작하는 베리어이다.
+ * 
+ * return:
+ *	lock 획득 시 1을 반환, 실패 시 0을 반환.
+ */
 #ifndef arch_atomic_try_cmpxchg_acquire
 static __always_inline bool
 arch_atomic_try_cmpxchg_acquire(atomic_t *v, int *old, int new)

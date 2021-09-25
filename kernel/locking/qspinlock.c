@@ -66,6 +66,10 @@
  */
 
 #include "mcs_spinlock.h"
+
+/*
+ * IAMROOT, 2021.09.25: cpu당 최대 nest 가능한 수
+ */
 #define MAX_NODES	4
 
 /*
@@ -104,6 +108,11 @@ struct qnode {
  * Exactly fits one 64-byte cacheline on a 64-bit architecture.
  *
  * PV doubles the storage and uses the second cacheline for PV state.
+ */
+
+/*
+ * IAMROOT, 2021.09.25: 
+ * - mcs queue node는 cpu별로 최대 4개씩 구성된다.
  */
 static DEFINE_PER_CPU_ALIGNED(struct qnode, qnodes[MAX_NODES]);
 
@@ -311,6 +320,31 @@ static __always_inline u32  __pv_wait_head_or_lock(struct qspinlock *lock,
  *                       :       v                               |  :
  * contended             :    (*,x,y) +--> (*,0,0) ---> (*,0,1) -'  :
  *   queue               :         ^--'                             :
+ */
+
+/*
+ * IAMROOT, 2021.09.25: 
+ * - u8 locked: 
+ *	1 비트만 사용한다. (0=no-lock, 1=lock)
+ * - u8 pending: 
+ *	1 비트만 사용한다. (0=no-pending, 1=pending)
+ * - u16: tail(cpu+idx):
+ *	14 비트는 cpu, idx에 2비트를 사용.
+ *	cpu: 실제 cpu 번호에 +1한 값을 저장한다. (0=no-cpu)
+ *	idx: task, bh, irq, nmi 각각으로 변경될 때마다 1씩 증가한다. (defaul: 0)
+ *           대부분의 경우 그냥 0을 사용하며, cpu에서 4가지 상태로 관리한다.
+ *		예) task(0) -> irq(1)
+ *		    task(0) -> irq(1) -> nmi(2)
+ *
+ * uncontended:
+ *	lock 경합없이 lock을 획득할 수 있는 상태. (처음 진입한 cpu)
+ * pending:
+ *	먼저 진입한 cpu가 lock owner이고, 두 번째로 진입한 cpu인 경우 가볍게 대기.
+ * uncontended queue:
+ *	세 번째로 진입한 cpu가 queue의 head에서 대기하는 상태로,
+ *      큐 내에서 간섭없이 대기중
+ * contended queue:
+ *      큐 내에서 차순위 이상 대기중인 cpu들이다.
  */
 void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 {

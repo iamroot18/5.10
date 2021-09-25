@@ -64,6 +64,16 @@ EXPORT_PER_CPU_SYMBOL(__mmiowb_state);
  * time (making _this_ CPU preemptable if possible), and we also signal
  * towards that other CPU that it should break the lock ASAP.
  */
+
+/*
+ * IAMROOT, 2021.09.25: 
+ * 2) SMP - LHP 방식
+ *   - spin하는 동안에 preemption을 허용한다. 
+ *     물론 lock을 획득한 이후에는 preemption을 허용하지 않는다.
+ *   - loop를 돌며 try lock을 수행하는데 실패 시 한 번씩 preempt를 허용한다.
+ *   - arch_spin_relax()는 cpu_relax()를 호출하고 
+ *     내부에서는 yield 어셈블리 명령을 사용한다.
+ */
 #define BUILD_LOCK_OPS(op, locktype)					\
 void __lockfunc __raw_##op##_lock(locktype##_t *lock)			\
 {									\

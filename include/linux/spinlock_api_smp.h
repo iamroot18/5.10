@@ -43,6 +43,12 @@ void __lockfunc
 _raw_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long flags)
 								__releases(lock);
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * 2) SMP 구현:
+ *    a) INLINE 방식
+ *    b) 함수 방식
+ */
 #ifdef CONFIG_INLINE_SPIN_LOCK
 #define _raw_spin_lock(lock) __raw_spin_lock(lock)
 #endif
@@ -136,6 +142,12 @@ static inline void __raw_spin_lock_bh(raw_spinlock_t *lock)
 	LOCK_CONTENDED(lock, do_raw_spin_trylock, do_raw_spin_lock);
 }
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * - CONIFIG_LOCK_STAT 커널 옵션이 설정된 경우
+ *   do_raw_spin_trylock() 함수와 do_raw_spin_lock() 함수를 사용하고, 
+ *   그렇지 않은 경우 do_raw_spin_lock()만 사용한다.
+ */
 static inline void __raw_spin_lock(raw_spinlock_t *lock)
 {
 	preempt_disable();

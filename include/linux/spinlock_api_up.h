@@ -55,6 +55,13 @@
 #define __UNLOCK_IRQRESTORE(lock, flags) \
   do { local_irq_restore(flags); __UNLOCK(lock); } while (0)
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * 1) UP 방식: 
+ *   -> _raw_spin_lock()
+ *      -> __LOCK()     : preempt_disable()만 사용하는 것으로 spin_lock 구현
+ *         -> ___LOCK() : lockdep 추적 코드
+ */
 #define _raw_spin_lock(lock)			__LOCK(lock)
 #define _raw_spin_lock_nested(lock, subclass)	__LOCK(lock)
 #define _raw_read_lock(lock)			__LOCK(lock)

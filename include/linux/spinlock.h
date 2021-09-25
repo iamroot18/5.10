@@ -177,6 +177,10 @@ do {									\
  extern int do_raw_spin_trylock(raw_spinlock_t *lock);
  extern void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock);
 #else
+/*
+ * IAMROOT, 2021.09.25: 
+ * - debug 버전 아닌 코드
+ */
 static inline void do_raw_spin_lock(raw_spinlock_t *lock) __acquires(lock)
 {
 	__acquire(lock);
@@ -196,6 +200,10 @@ do_raw_spin_lock_flags(raw_spinlock_t *lock, unsigned long *flags) __acquires(lo
 	mmiowb_spin_lock();
 }
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * - debug용이 아닌 일반 버전
+ */
 static inline int do_raw_spin_trylock(raw_spinlock_t *lock)
 {
 	int ret = arch_spin_trylock(&(lock)->raw_lock);
@@ -349,6 +357,11 @@ do {						\
 
 #endif
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * - spin_lock()은 rt 커널에서 preemption이 가능하다.
+ *   일반 커널에서는 raw_spin_lock()으로 연결되어 preemption을 허용하지 않는다.
+ */
 static __always_inline void spin_lock(spinlock_t *lock)
 {
 	raw_spin_lock(&lock->rlock);

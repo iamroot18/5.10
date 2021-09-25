@@ -99,3 +99,8 @@
 ### 17주차
 - 2021.09.18, Zoom 온라인(22명 참석)
 - barrier, atomic
+
+### 18주차
+- 2021.09.25, Zoom 온라인(18명 참석)
+- bitops, bitmap, cpumask, spinlock 진행중
+

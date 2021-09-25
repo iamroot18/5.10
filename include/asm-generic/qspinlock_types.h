@@ -11,6 +11,13 @@
 
 #include <linux/types.h>
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * arch_spinlock_t: qspinlock 구조체를 타입 정의하여 사용한다.
+ * u32 val - u16 locked_pending - u8 locked
+ *                                u8 pending
+ *           u16 tail
+ */
 typedef struct qspinlock {
 	union {
 		atomic_t val;

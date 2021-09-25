@@ -64,12 +64,27 @@ static __always_inline int queued_spin_trylock(struct qspinlock *lock)
 
 	if (unlikely(val))
 		return 0;
-
+/*
+ * IAMROOT, 2021.09.25: 
+ * - val 값이 0인 경우에만 이 곳으로 온다. 즉 unlock 상태. 
+ *
+ * - 아래 코드에서는 다른 smp core가 먼저 lock을 획득한 경우 lock->val이 0이 아닌 
+ *   값이 저장되며, 이 때 lock 획득이 실패한다.
+ *   여전히 lock->val이 0인 상태인 경우에만 1로 교체 시도하여 성공하면 
+ *   lock을 획득하게 된다.
+ */
 	return likely(atomic_try_cmpxchg_acquire(&lock->val, &val, _Q_LOCKED_VAL));
 }
 
 extern void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val);
 
+/*
+ * IAMROOT, 2021.09.25: 
+ * - 무조건 lock을 획득하는데 누군가 먼저 lock을 획득한 상태라면,
+ *   내 차례가 와서 lock을 획득할 때 까지 무한 spin 한다.
+ *
+ * - 무조건 성공이므로 void 반환을 사용한다.
+ */
 #ifndef queued_spin_lock
 /**
  * queued_spin_lock - acquire a queued spinlock
@@ -79,9 +94,10 @@ static __always_inline void queued_spin_lock(struct qspinlock *lock)
 {
 	u32 val = 0;
 
+/* IAMROOT, 2021.09.25: fast-path */
 	if (likely(atomic_try_cmpxchg_acquire(&lock->val, &val, _Q_LOCKED_VAL)))
 		return;
-
+/* IAMROOT, 2021.09.25: slow-path */
 	queued_spin_lock_slowpath(lock, val);
 }
 #endif
