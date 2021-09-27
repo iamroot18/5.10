@@ -351,12 +351,21 @@ static inline s64 __lse_atomic64_dec_if_positive(atomic64_t *v)
  * IAMROOT, 2021.09.18:
  * - cas : compare and swap
  *
- * - CAS Xs, Xt, [Xn|SP] : 64bit
+ * - CAS Xs, Xt, [Xn|SP]       : 64bit
  *   CAS{B|H|} Ws, Wt, [Xn|SP] : 8, 16, 32bit
- *   Xt or Wt 값 <- [Xn|SP] (load and compare)
- *   [Xn|SP] <- Xs or Ws 값 (store when true)
- *   어떤 메모리주소에 있는 값을 읽어오면서 읽어온값과 Xt값과 비교해
- *   동일할때에만 새로운 값(Xs)을 기록하며, 이 과정이 atomic으로 이루어진다.
+ *   Xs or Ws 값 <- [Xn|SP] (load and compare)
+ *   [Xn|SP] <- Xt or Wt 값 (store when equal)
+ *
+ *   어떤 메모리 주소(Xn/SP)에 있는 값을 읽어와 Xs값과 비교하여
+ *   동일하면 새로운 값(Xt)을 같은 메모리 주소에 기록한다.
+ *   이 과정은 atomic하게 이루어진다.
+ *
+ * - syntax
+ *   asm volatile(asm expr : output : input : list)
+ *    - +r  : Output 오퍼랜드에서 읽기/쓰기 가능
+ *    - +Q  : Output 오퍼랜드에서 메모리 읽기/쓰기 가능
+ *    - =&r : 쓰기 목적이며 범용 레지스터에 우선 배정
+ *    - r   : 범용 레지스터에 배정
  */
 #define __CMPXCHG_CASE(w, sfx, name, sz, mb, cl...)			\
 static __always_inline u##sz						\
