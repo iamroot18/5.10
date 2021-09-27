@@ -16,6 +16,10 @@
  * at position 64.
  */
 #if BITS_PER_LONG == 32
+/* IAMROOT, 2021.09.27:
+ * 32번 bit이상에 set bit가 존재할경우 x >> 32로 값이 남고, 최소값이 32보다
+ * 클것이므로 32를 더해주고 그게 아니면 32bit 처리하는것처럼 처리한다.
+ */
 static __always_inline int fls64(__u64 x)
 {
 	__u32 h = x >> 32;
@@ -24,6 +28,11 @@ static __always_inline int fls64(__u64 x)
 	return fls(x);
 }
 #elif BITS_PER_LONG == 64
+/* IAMROOT, 2021.09.27:
+ * long형이 64bit일 경우 __builtin_clzl(__fls)로만으로 처리가 가능하므로,
+ * 해당 함수 처리조건인 0검사, __가 없는 fls는 0번 bit가 1인것을 고려한 + 1처리를
+ * 해준다.
+ */
 static __always_inline int fls64(__u64 x)
 {
 	if (x == 0)

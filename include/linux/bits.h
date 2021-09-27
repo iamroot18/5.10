@@ -6,6 +6,10 @@
 #include <vdso/bits.h>
 #include <asm/bitsperlong.h>
 
+/* IAMROOT, 2021.09.27:
+ * - bit 시작 번호가 0이 아닌 1임을 주의
+ * - BIT_WORD 는 Bitmap에서 해당 bit의 index를 구하는 개념
+ */
 #define BIT_ULL(nr)		(ULL(1) << (nr))
 #define BIT_MASK(nr)		(UL(1) << ((nr) % BITS_PER_LONG))
 #define BIT_WORD(nr)		((nr) / BITS_PER_LONG)
