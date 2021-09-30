@@ -11,6 +11,9 @@
 #  define aligned_byte_mask(n) (~0xffUL << (BITS_PER_LONG - 8 - 8*(n)))
 #endif
 
+/* IAMROOT, 2021.09.30:
+ * nr개의 bit를 수용하기 위해 해당 type들로 몇개가 필요한지 계산하는 매크로
+ */
 #define BITS_PER_TYPE(type)	(sizeof(type) * BITS_PER_BYTE)
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_TYPE(long))
 #define BITS_TO_U64(nr)		DIV_ROUND_UP(nr, BITS_PER_TYPE(u64))
@@ -28,6 +31,10 @@ extern unsigned long __sw_hweight64(__u64 w);
  */
 #include <asm/bitops.h>
 
+/* IAMROOT, 2021.09.30:
+ * bitmap 검색의 iterator. 
+ * for_each_set_bit는 처음부터, for_each_set_bit_from은 중간부터 검색이 가능하다.
+ */
 #define for_each_set_bit(bit, addr, size) \
 	for ((bit) = find_first_bit((addr), (size));		\
 	     (bit) < (size);					\

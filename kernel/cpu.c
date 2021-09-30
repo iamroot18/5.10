@@ -2464,6 +2464,26 @@ void init_cpu_online(const struct cpumask *src)
 	cpumask_copy(&__cpu_online_mask, src);
 }
 
+/* IAMROOT, 2021.09.30:
+ * cpu 상태는 4가지가 존재한다.
+ * - online
+ *   cpu에 task가 running이 가능한 상태.
+ *
+ * - active
+ *   cpu가 스케쥴링 가능한 상태.
+ *
+ * - present
+ *   장착되어 cpu가 인식된 상태.
+ *
+ * - possible
+ *   cpu가 장착되 있거나, 장착 가능한 공간이 있는 상태.
+ *
+ * ---
+ * | online | active | 동작 
+ * | true   | false  | task만 돌아가는 상태 task만 돌릴수 있는 상태.
+ * | true   | true   | task + 스케쥴링까지 가능한 상태
+ */
+
 void set_cpu_online(unsigned int cpu, bool online)
 {
 	/*

@@ -9,6 +9,12 @@
 #include <linux/string.h>
 #include <linux/kernel.h>
 
+/* IAMROOT, 2021.09.30:
+ * - bitmap은 기본적으로 unsigned long 타입을 써야된다.
+ * - static inline code이기 때문에 가능하면 상수를 써야된다.
+ * - DECLARE_BITMAP 매크로를 사용해서 bitmap을 선언해도된다.
+ * - bitmap 함수는 굳이 code를 볼필요없이 주석 overview만 봐도 동작을 이해할수있다.
+ */
 /*
  * bitmaps provide bit arrays that consume one or more unsigned
  * longs.  The bitmap interface and available operations are listed
@@ -221,6 +227,17 @@ extern unsigned int bitmap_ord_to_pos(const unsigned long *bitmap, unsigned int 
 extern int bitmap_print_to_pagebuf(bool list, char *buf,
 				   const unsigned long *maskp, int nmaskbits);
 
+/* IAMROOT, 2021.09.30:
+ * start bit보다 낮은 bit들은 전부 clear하기 위한것.
+ * ex)
+ * BITMAP_FIRST_WORD_MASK 0 ffffffffffffffff
+ * BITMAP_FIRST_WORD_MASK 1 fffffffffffffffe
+ * BITMAP_FIRST_WORD_MASK 2 fffffffffffffffc
+ * ...
+ * BITMAP_FIRST_WORD_MASK 63 8000000000000000
+ * BITMAP_FIRST_WORD_MASK 64 ffffffffffffffff
+ * BITMAP_FIRST_WORD_MASK 65 fffffffffffffffe
+ */
 #define BITMAP_FIRST_WORD_MASK(start) (~0UL << ((start) & (BITS_PER_LONG - 1)))
 #define BITMAP_LAST_WORD_MASK(nbits) (~0UL >> (-(nbits) & (BITS_PER_LONG - 1)))
 
