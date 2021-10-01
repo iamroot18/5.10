@@ -48,6 +48,7 @@ _raw_spin_unlock_irqrestore(raw_spinlock_t *lock, unsigned long flags)
  * 2) SMP 구현:
  *    a) INLINE 방식
  *    b) 함수 방식
+ *  stack trace등의 디버깅 때문에 함수방식을 쓰기도 한다고 한다.
  */
 #ifdef CONFIG_INLINE_SPIN_LOCK
 #define _raw_spin_lock(lock) __raw_spin_lock(lock)
@@ -147,6 +148,8 @@ static inline void __raw_spin_lock_bh(raw_spinlock_t *lock)
  * - CONIFIG_LOCK_STAT 커널 옵션이 설정된 경우
  *   do_raw_spin_trylock() 함수와 do_raw_spin_lock() 함수를 사용하고, 
  *   그렇지 않은 경우 do_raw_spin_lock()만 사용한다.
+ *
+ * - LHP방식을 볼려면 BUILD_LOCK_OPS정의를 따라가보면 된다.
  */
 static inline void __raw_spin_lock(raw_spinlock_t *lock)
 {

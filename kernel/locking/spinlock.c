@@ -72,7 +72,9 @@ EXPORT_PER_CPU_SYMBOL(__mmiowb_state);
  *     물론 lock을 획득한 이후에는 preemption을 허용하지 않는다.
  *   - loop를 돌며 try lock을 수행하는데 실패 시 한 번씩 preempt를 허용한다.
  *   - arch_spin_relax()는 cpu_relax()를 호출하고 
- *     내부에서는 yield 어셈블리 명령을 사용한다.
+ *     내부에서는 yield 어셈블리 명령을 사용한다. 다른 thread가 자원을 얻을수
+ *     있게 하는 hint의 일종인듯 싶으며, 전려관리 측면도 고려된다고 한다.
+ *     (arch_spin_relax 참고)
  */
 #define BUILD_LOCK_OPS(op, locktype)					\
 void __lockfunc __raw_##op##_lock(locktype##_t *lock)			\

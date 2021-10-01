@@ -2465,6 +2465,8 @@ void init_cpu_online(const struct cpumask *src)
 }
 
 /* IAMROOT, 2021.09.30:
+ * ---
+ * cpu 상태 정리
  * cpu 상태는 4가지가 존재한다.
  * - online
  *   cpu에 task가 running이 가능한 상태.
@@ -2478,12 +2480,16 @@ void init_cpu_online(const struct cpumask *src)
  * - possible
  *   cpu가 장착되 있거나, 장착 가능한 공간이 있는 상태.
  *
- * ---
  * | online | active | 동작 
  * | true   | false  | task만 돌아가는 상태 task만 돌릴수 있는 상태.
  * | true   | true   | task + 스케쥴링까지 가능한 상태
+ * 
+ * ---
  */
-
+/*
+ * IAMROOT, 2021.10.01:
+ *  online cpu를 관리하는 함수.
+ */
 void set_cpu_online(unsigned int cpu, bool online)
 {
 	/*
@@ -2496,6 +2502,17 @@ void set_cpu_online(unsigned int cpu, bool online)
 	 * does not protect readers which are not serialized against
 	 * concurrent hotplug operations.
 	 */
+/*
+ * IAMROOT, 2021.10.01:
+ *  - online = true 일경우
+ *  해당 cpu가 online 상태인지 확인한다.
+ *  cpumask_test_and_set_cpu에서 cpu를 online상태로 만드는 동시에
+ *  cpu의 이전 상태가 online 상태를 반환하여 online 상태가 아니였다면
+ *  online cpu개수를 증가 시킨다.
+ *  - online = false 일경우
+ *  online = true인 경우와 반대로 online인 cpu를 clear시키며 개수를 감소시킨다.
+ *  
+ */
 	if (online) {
 		if (!cpumask_test_and_set_cpu(cpu, &__cpu_online_mask))
 			atomic_inc(&__num_online_cpus);
@@ -2522,7 +2539,11 @@ void __init boot_cpu_init(void)
 	__boot_cpu_id = cpu;
 #endif
 }
-
+/*
+ * IAMROOT, 2021.10.01:
+ * - CPU가 등록, 삭제 될때마다 순서대로 호출되는 루틴이 있으며, 그 순서를
+ *   정의 한게 enum cpuhp_state이다.
+ */
 /*
  * Must be called _AFTER_ setting up the per_cpu areas
  */

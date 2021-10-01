@@ -3,7 +3,14 @@
 #define __CPUHOTPLUG_H
 
 #include <linux/types.h>
-
+/*
+ * IAMROOT, 2021.10.01:
+ * - cpu_hotplug.rst 문서를 참고.
+ * - CPU가 Offline에서 online이 될때는 CPUHP_OFFLINE에서 출발해
+ *   CPUHP_ONLINE까지 호출하며,
+ *   CPU가 online에서 offline이 될때에는 CPUHP_OFFLINE에서 CPUHP_OFFLINE까지
+ *   호출된다. 중간에 실패할경우 호출된 역순으로 되돌아간다.
+ */
 /*
  * CPU-up			CPU-down
  *

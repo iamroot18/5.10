@@ -17,7 +17,18 @@
 #define in_lock_functions(ADDR)		0
 
 #define assert_raw_spin_locked(lock)	do { (void)(lock); } while (0)
-
+/*
+ * IAMROOT, 2021.10.01:
+ * - 제일 간단한 케이스로, UP의 경우 task 변경만 안되면 일반적인 상황에서
+ *   다른 lock을 할 필요없다. 예를 들어
+ *   A task에서 lock을 건상태에서 B task 를 실행되고 해당 lock을 또 얻을경우
+ *   이걸 풀 방법이 없다. 다른 말로는 다른 task로의 이동만 안하면 이러한
+ *   일이 발생하지 않는다. 따라서 preempt_disable로 다른 task로의 선점을
+ *   막게 함으로 이를 예방한다.
+ * - task 경우와는 다르게 irq가 발생하고 해당 irq 루틴에서 lock을 얻어버리면
+ *   또 데드락이 발생해버린다. 그래서 irq내에서 해당 lock을 사용해야될경우
+ *   __LOCK_IRQ를 사용해서 irq를 막아버린다. bh도 비슷한경우이다.
+ */
 /*
  * In the UP-nondebug case there's no real locking going on, so the
  * only thing we have to do is to keep the preempt counts and irq

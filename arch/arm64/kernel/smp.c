@@ -53,7 +53,12 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
-
+/*
+ * IAMROOT, 2021.10.01:
+ * - cpu 마다 고유의 번호를 저장하는 변수.
+ * raw_cpu_ptr함수를 거쳐 __kern_my_cpu_offset 이나 __hyp_my_cpu_offset를
+ * 통해 cpu 번호를 읽어온후 이 변수에 저장되게된다.
+ */
 DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
 EXPORT_PER_CPU_SYMBOL(cpu_number);
 
