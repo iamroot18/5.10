@@ -100,7 +100,12 @@ static struct arm64_cpu_capabilities const __ro_after_init *cpu_hwcaps_ptrs[ARM6
 
 /* Need also bit for ARM64_CB_PATCH */
 DECLARE_BITMAP(boot_capabilities, ARM64_NPATCHABLE);
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - randomize가 동작했을때 true가 된다.
+ * - page table을 어떤 cpu가 지정하면 다른 cpu도 공유해서 사용하는데
+ *   none global이 true라면 공유하지 않는다.
+ */
 bool arm64_use_ng_mappings = false;
 EXPORT_SYMBOL(arm64_use_ng_mappings);
 
@@ -1277,7 +1282,11 @@ has_useable_cnp(const struct arm64_cpu_capabilities *entry, int scope)
 
 	return has_cpuid_feature(entry, scope);
 }
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - CONFIG_RANDOMIZE_BASE가 on일때 head.S 마지막에서 random offset을
+ *   구했었는데, 해당 값이 존재 한다면 true를 return 한다.
+ */
 /*
  * This check is triggered during the early boot before the cpufeature
  * is initialised. Checking the status on the local CPU allows the boot

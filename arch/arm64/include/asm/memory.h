@@ -390,11 +390,29 @@ static inline const void *__tag_set(const void *addr, u8 tag)
  * space. Testing the top bit for the start of the region is a
  * sufficient check and avoids having to worry about the tag.
  */
+/*
+ * IAMROOT, 2021.10.02:
+ * - __virt_to_phys_nodebug(x)
+ *   x가 리니어매핑된 주소라면 리니어매핑 물리주소 변환을, 아니면
+ *   kimg_to_phys 변환을 수행한다.
+ *
+ * - __is_lm_address
+ *   리니어매핑 가상주소인 경우 true
+ *   범위 0xffff_0000_0000_0000 ~ 0xffff_7fff_ffff_ffff
+ *
+ * - __lm_to_phys
+ *   리니어매핑 가상주소를 물리주소로 변환한다.
+ *   PAGE_OFFSET bits를 전부 clear시키고 PHYS_OFFSET을 더하는것으로
+ *   물리주소가 구해진다.
+ *
+ * - __kimg_to_phys, __pa_symbol_nodebug
+ *   image 가상주소를 물리주소로 변환한다. randomize offset을 빼는것만으로
+ *   구해진다.
+ */
 #define __is_lm_address(addr)	(!(((u64)addr) & BIT(vabits_actual - 1)))
 
 #define __lm_to_phys(addr)	(((addr) & ~PAGE_OFFSET) + PHYS_OFFSET)
 #define __kimg_to_phys(addr)	((addr) - kimage_voffset)
-
 #define __virt_to_phys_nodebug(x) ({					\
 	phys_addr_t __x = (phys_addr_t)(__tag_reset(x));		\
 	__is_lm_address(__x) ? __lm_to_phys(__x) : __kimg_to_phys(__x);	\
@@ -409,7 +427,13 @@ extern phys_addr_t __phys_addr_symbol(unsigned long x);
 #define __virt_to_phys(x)	__virt_to_phys_nodebug(x)
 #define __phys_addr_symbol(x)	__pa_symbol_nodebug(x)
 #endif /* CONFIG_DEBUG_VIRTUAL */
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - __phys_to_virt
+ *   물리주소를 리니어매핑된 가상주소로 변환.
+ * - __phys_to_kimg
+ *   물리주소를 image로 매핑된 가상주소도 변환.
+ */
 #define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | PAGE_OFFSET)
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))
 
@@ -438,6 +462,17 @@ static inline void *phys_to_virt(phys_addr_t x)
 
 /*
  * Drivers should NOT use these either.
+ */
+/*
+ * IAMROOT, 2021.10.02:
+ * kernel은 리니어 매핑이 되있기 때문에 PHYS_OFFSET을 +- 하고 PAGE_OFFSET
+ * 을 OR 해주는것만으로도 va <-> pa 변환이 가능하다.
+ *
+ * - __pa
+ *   va를 pa로 변환. kernel memory 전용.
+ *
+ * - __va
+ *   pa를 va로 변환. kernel memory 전용.
  */
 #define __pa(x)			__virt_to_phys((unsigned long)(x))
 #define __pa_symbol(x)		__phys_addr_symbol(RELOC_HIDE((unsigned long)(x), 0))

@@ -40,11 +40,21 @@
  * because in such cases PTRS_PER_PxD equals 1.
  */
 
+/*
+ * IAMROOT, 2021.10.02:
+ * - (a >> 12) & (0x1ff)
+ *   a : 0xffff_0000_001f_f000 = 1ff
+ */
 static inline unsigned long pte_index(unsigned long address)
 {
 	return (address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1);
 }
 
+/*
+ * IAMROOT, 2021.10.02:
+ * - (a >> 21) & (0x1ff)
+ *   a : 0xffff_0000_3fe0_0000 = 1ff
+ */
 #ifndef pmd_index
 static inline unsigned long pmd_index(unsigned long address)
 {
@@ -52,7 +62,11 @@ static inline unsigned long pmd_index(unsigned long address)
 }
 #define pmd_index pmd_index
 #endif
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - (a >> 30) & (0x1ff)
+ *   a : 0xffff_007f_c000_0000 = 1ff
+ */
 #ifndef pud_index
 static inline unsigned long pud_index(unsigned long address)
 {
@@ -60,12 +74,30 @@ static inline unsigned long pud_index(unsigned long address)
 }
 #define pud_index pud_index
 #endif
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - address bit별 영역 정리
+ *
+ * address bits   | 16    | 9     | 9   | 9   | 9   | 12     | 
+ *                | k/u   | PGD   | PUD | PMD | PTE | OFFSET |
+ * size per entry | ----  | 512GB | 1GB | 2MB | 4KB | -----  |
+ * ---
+ *
+ * PAGE_SIZE 4KB 기준, 4단계 table
+ * -(a >> 39) & (0x1ff) 
+ * - ex)
+ *   a : 0xffff_ff80_0000_0000 = 0x1ff
+ */
 #ifndef pgd_index
 /* Must be a compile-time constant, so implement it as a macro */
 #define pgd_index(a)  (((a) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1))
 #endif
 
+/*
+ * IAMROOT, 2021.10.02:
+ * - address에 해당하는 pte page table entry주소를 가져온다.
+ *   pud_offset과 동일 방식의 변환을 수행한다.
+ */
 #ifndef pte_offset_kernel
 static inline pte_t *pte_offset_kernel(pmd_t *pmd, unsigned long address)
 {
@@ -84,6 +116,11 @@ static inline pte_t *pte_offset_kernel(pmd_t *pmd, unsigned long address)
 #define pte_unmap(pte) ((void)(pte))	/* NOP */
 #endif
 
+/*
+ * IAMROOT, 2021.10.02:
+ * - address에 해당하는 pmd page table entry주소를 가져온다.
+ *   pud_offset과 동일 방식의 변환을 수행한다.
+ */
 /* Find an entry in the second-level page table.. */
 #ifndef pmd_offset
 static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
@@ -93,6 +130,12 @@ static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
 #define pmd_offset pmd_offset
 #endif
 
+/*
+ * IAMROOT, 2021.10.02:
+ * - address에 해당하는 pud page table entry주소를 가져온다.
+ * - page table entry에는 pa로 저장되어 있다.
+ *   해당 entry에는 물리주소가 저장되있으므로 va로 변환이 되야 된다
+ */
 #ifndef pud_offset
 static inline pud_t *pud_offset(p4d_t *p4d, unsigned long address)
 {
@@ -100,7 +143,10 @@ static inline pud_t *pud_offset(p4d_t *p4d, unsigned long address)
 }
 #define pud_offset pud_offset
 #endif
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - address에 해당하는 pgd page table entry주소를 가져온다.
+ */
 static inline pgd_t *pgd_offset_pgd(pgd_t *pgd, unsigned long address)
 {
 	return (pgd + pgd_index(address));

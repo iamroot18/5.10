@@ -73,6 +73,13 @@ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
 	((pte_val(pte) & PTE_ADDR_LOW) | ((pte_val(pte) & PTE_ADDR_HIGH) << 36))
 #define __phys_to_pte_val(phys)	(((phys) | ((phys) >> 36)) & PTE_ADDR_MASK)
 #else
+/*
+ * IAMROOT, 2021.10.02:
+ * - pte entry 값을 물리주소로 만든다.
+ *   pte에는 원래부터 물리주소로 들어가 있지만 VA_BITS가 52bit, 48bit
+ *   인지에 따라 변환이 다르고 memory 속성값들도 전부 clear 해줘야되기
+ *   때문에 이러한 masking 작업을 수행한다.
+ */
 #define __pte_to_phys(pte)	(pte_val(pte) & PTE_ADDR_MASK)
 #define __phys_to_pte_val(phys)	(phys)
 #endif
@@ -684,7 +691,11 @@ static inline phys_addr_t p4d_page_paddr(p4d_t p4d)
 {
 	return __p4d_to_phys(p4d);
 }
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - p4d : entry안에 있는 물리주소
+ * - p4d entry가 가리키는 pud 가상주소를 알아온다.
+ */
 static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 {
 	return (unsigned long)__va(p4d_page_paddr(p4d));
