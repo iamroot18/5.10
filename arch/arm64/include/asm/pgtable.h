@@ -686,11 +686,16 @@ static inline void p4d_clear(p4d_t *p4dp)
 {
 	set_p4d(p4dp, __p4d(0));
 }
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - p4d : entry안에 있는 물리주소
+ * - p4d entry가 가리키는 pud 물리주소를 알아온다.
+ */
 static inline phys_addr_t p4d_page_paddr(p4d_t p4d)
 {
 	return __p4d_to_phys(p4d);
 }
+
 /*
  * IAMROOT, 2021.10.02:
  * - p4d : entry안에 있는 물리주소
@@ -700,7 +705,17 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 {
 	return (unsigned long)__va(p4d_page_paddr(p4d));
 }
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - 가상주소인 dir(p4d entry주소)에 저장된 물리주소(pud 시작주소)를 구한후,
+ *   addr의 pud_index를 구하고 그 offset만큼을 구해 최종적으로
+ *   pud entry의 물리주소를 구한다.
+ *
+ * - sizeof(pud_t)를 곱하는 이유
+ *   pud_t size단위로 index만큼을 곱해 byte단위의 주소를 구하기 위함.
+ *   index * 8과 같은 의미.
+ *   pud_t *a; 라는 게 있을때 b = a + index를 하는것과 같음
+ */
 /* Find an entry in the frst-level page table. */
 #define pud_offset_phys(dir, addr)	(p4d_page_paddr(READ_ONCE(*(dir))) + pud_index(addr) * sizeof(pud_t))
 
@@ -710,6 +725,10 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 
 #define p4d_page(p4d)		pfn_to_page(__phys_to_pfn(__p4d_to_phys(p4d)))
 
+/*
+ * IAMROOT, 2021.10.02:
+ * - pud_offset_phys로 구한 pud 물리주소를 가상주소로 변환한다.
+ */
 /* use ONLY for statically allocated translation tables */
 #define pud_offset_kimg(dir,addr)	((pud_t *)__phys_to_kimg(pud_offset_phys((dir), (addr))))
 

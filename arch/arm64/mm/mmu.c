@@ -1157,7 +1157,10 @@ void vmemmap_free(unsigned long start, unsigned long end,
 #endif
 }
 #endif	/* CONFIG_SPARSEMEM_VMEMMAP */
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - 가상주소인 addr에 해당하는 pud entry주소를 반환한다.
+ */
 static inline pud_t * fixmap_pud(unsigned long addr)
 {
 	pgd_t *pgdp = pgd_offset_k(addr);
@@ -1169,6 +1172,10 @@ static inline pud_t * fixmap_pud(unsigned long addr)
 	return pud_offset_kimg(p4dp, addr);
 }
 
+/*
+ * IAMROOT, 2021.10.02:
+ * - 가상주소인 addr에 해당하는 pmd entry주소를 반환한다.
+ */
 static inline pmd_t * fixmap_pmd(unsigned long addr)
 {
 	pud_t *pudp = fixmap_pud(addr);
@@ -1204,6 +1211,26 @@ void __init early_fixmap_init(void)
 	pgdp = pgd_offset_k(addr);
 	p4dp = p4d_offset(pgdp, addr);
 	p4d = READ_ONCE(*p4dp);
+/*
+ * IAMROOT, 2021.10.02:
+ * - CONFIG_PGTABLE_LEVELS이 4레벨 이상이고,
+ *   p4d가 매핑이 되있고 p4d가 bm_pud와 주소가 같지 않다면 이
+ *   if문에 진입한다.
+ *
+ * | 16 | 1 | 11 | 11 | 11 | 14 |
+ *
+ *   1 : ---
+ *   111_1101_1111 : 0x7df
+ *   111_1111_1111 : 0x7ff
+ *   001_0111_1110 : 0x17e
+ *   
+ * - 16k / 4 level일 경우 pgd는 2개 entry밖에 존재 하지 않는다.
+ *
+ * - p4d가 이미 kernel에 의해 mapping이 되있으므로 있는걸 사용하겠다는
+ *   의미로 else에서 p4d를 pm_pud와 매핑하는것과는 다르게 이 if문에서는
+ *   mapping을 하지 않는다. else 처럼 pudp만을 구한다.
+ *   이때 image 가상주소로 사용한다.
+ */
 	if (CONFIG_PGTABLE_LEVELS > 3 &&
 	    !(p4d_none(p4d) || p4d_page_paddr(p4d) == __pa_symbol(bm_pud))) {
 		/*
@@ -1214,12 +1241,27 @@ void __init early_fixmap_init(void)
 		BUG_ON(!IS_ENABLED(CONFIG_ARM64_16K_PAGES));
 		pudp = pud_offset_kimg(p4dp, addr);
 	} else {
+/*
+ * IAMROOT, 2021.10.02:
+ * 일반적으로 이 else문으로 진입한다.
+ *
+ * p4d가 매핑이 안되있으면 bm_pud로 매핑을 한다.
+ * 그리고 fixmap_pud를 통해 pud entry 주소를 구한다.
+ */
 		if (p4d_none(p4d))
 			__p4d_populate(p4dp, __pa_symbol(bm_pud), PUD_TYPE_TABLE);
 		pudp = fixmap_pud(addr);
 	}
+/*
+ * IAMROOT, 2021.10.02:
+ * - pud가 매핑이 안되있다면 위 bm_pud처럼 bm_pmd도 매핑을 해준다.
+ */
 	if (pud_none(READ_ONCE(*pudp)))
 		__pud_populate(pudp, __pa_symbol(bm_pmd), PMD_TYPE_TABLE);
+/*
+ * IAMROOT, 2021.10.02:
+ * - pmd entry를 구해와서 무조건 bm_pte로 매핑을 해준다.
+ */
 	pmdp = fixmap_pmd(addr);
 	__pmd_populate(pmdp, __pa_symbol(bm_pte), PMD_TYPE_TABLE);
 
