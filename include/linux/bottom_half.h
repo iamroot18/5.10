@@ -7,6 +7,11 @@
 #ifdef CONFIG_TRACE_IRQFLAGS
 extern void __local_bh_disable_ip(unsigned long ip, unsigned int cnt);
 #else
+/*
+ * IAMROOT, 2021.10.02:
+ * - preempt이 0이 아니라면 preemption을 하지 않게 한다는것.
+ *   즉 일반 spin_lock에 preempt disable을 추가 한 개념
+ */
 static __always_inline void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
 {
 	preempt_count_add(cnt);

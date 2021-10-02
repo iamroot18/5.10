@@ -107,6 +107,12 @@ static __always_inline void queued_spin_lock(struct qspinlock *lock)
 #endif
 
 #ifndef queued_spin_unlock
+/*
+ * IAMROOT, 2021.10.02:
+ * - release를 사용해 lock할때 걸었던 acquire를 풀어준다.
+ *
+ * - smp_store_release를 사용할때 wfe도 같이 풀린다.
+ */
 /**
  * queued_spin_unlock - release a queued spinlock
  * @lock : Pointer to queued spinlock structure

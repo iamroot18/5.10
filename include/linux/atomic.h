@@ -50,7 +50,10 @@
  *
  * See Documentation/memory-barriers.txt for ACQUIRE/RELEASE definitions.
  */
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - cond조건이 될때까지 wait 하는 함수들
+ */
 #define atomic_cond_read_acquire(v, c) smp_cond_load_acquire(&(v)->counter, (c))
 #define atomic_cond_read_relaxed(v, c) smp_cond_load_relaxed(&(v)->counter, (c))
 
