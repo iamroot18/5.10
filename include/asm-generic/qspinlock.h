@@ -98,6 +98,14 @@ static __always_inline void queued_spin_lock(struct qspinlock *lock)
  * - val = 0 으로 비교하는 이유
  *   spin_lock_init에서 val을 0으로 초기화 시킨다. 그러므로 old값이
  *   spin_lock_init에서 초기화한 0일 것이고, 해당 old값인 0으로 비교하는것이다.
+ *
+ * - slowpath 고려 사항
+ *   lock은 풀렸으나 pending bit가 set되어 있어도 fast-path 실패로 간주하는데
+ *   pending cpu가 다음 lock-owner가 되어야 하기 때문이다.
+ *   - 성공 (반환 1): val == (0,0,0)
+ *   - 실패 (반환 0): val != (0,0,0) 따라서 (*,*,1) / (*,1,*) / (n,*,*) 이다.
+ *
+ *   따라서 (*,1,0) 라면 lock-owner는 없으나 spinning cpus >= 1인 경우이다.
  */
 	if (likely(atomic_try_cmpxchg_acquire(&lock->val, &val, _Q_LOCKED_VAL)))
 		return;
