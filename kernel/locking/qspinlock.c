@@ -385,6 +385,12 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
  *   atomic_cond_read_relaxed 내부에서 쓰는 지역변수. 직접 읽은 값을
  *   비교하기 위한것
  */
+/*
+ * IAMROOT, 2021.10.04:
+ * fast-path 당시 unlock 상태이나 pending cpu가 존재 (0,1,0).
+ * (0,1,0)라면 pending cpu가 lock을 획득해야 하니 (0,0,1) 될때까지 대기
+ * 하거나 1회 loop하여 기다린다.
+ */
 		int cnt = _Q_PENDING_LOOPS;
 		val = atomic_cond_read_relaxed(&lock->val,
 					       (VAL != _Q_PENDING_VAL) || !cnt--);
@@ -413,6 +419,12 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
  * IAMROOT, 2021.10.02:
  * - 만약에 old가 pending이나 tail이 set되있다면, 다른 cpu들이 현재 cpu보다
  *   pending이나 queue로 기다리고 있게 되므로 바로 queue로 직행한다.
+ *
+ * - fetch_set_pending_acquire 이후 상태
+ *   lock->val: (*,1,*)
+ *         val: (0,0,*) - 경합이 없는 경우
+ *              (n,*,*) - 이미 N cpus 경합한 경우.
+ *                        바로 queue로 보낸다.
  */
 	/*
 	 * If we observe contention, there is a concurrent locker.
@@ -431,7 +443,7 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 	}
 /*
  * IAMROOT, 2021.10.02:
- * - 이제 현재 cpu(2번째 cpu)는 pending얻은 상태고, 첫번째 cpu가 unlock
+ * - 현재 cpu(2번째 cpu)는 pending얻은 상태고, 첫번째 cpu가 unlock
  *   될때까지 기다린다.
  */
 	/*
@@ -449,7 +461,7 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 		atomic_cond_read_acquire(&lock->val, !(VAL & _Q_LOCKED_MASK));
 /*
  * IAMROOT, 2021.10.02:
- * - 이때부터 이제 현재 cpu가 lock owner가 된것이다.
+ * - 이때부터 현재 cpu가 lock owner가 된것이다.
  */
 	/*
 	 * take ownership and clear the pending bit.
