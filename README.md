@@ -104,3 +104,6 @@
 - 2021.09.25, Zoom 온라인(18명 참석)
 - bitops, bitmap, cpumask, spinlock 진행중
 
+### 19주차
+- 2021.10.02, Zoom 온라인(19명 참석)
+- spinlock, early_fixmap_init() 진행중
