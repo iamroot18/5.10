@@ -626,6 +626,10 @@ void __init early_init_fdt_reserve_self(void)
  * used to extract the memory information at boot before we can
  * unflatten the tree
  */
+/*
+ * IAMROOT, 2021.10.09: 
+ * 모든 노드에 대해서 @it 함수를 실행시킨다.
+ */
 int __init of_scan_flat_dt(int (*it)(unsigned long node,
 				     const char *uname, int depth,
 				     void *data),
@@ -1045,6 +1049,11 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 
 	pr_debug("search \"chosen\", depth: %d, uname: %s\n", depth, uname);
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * 루트 노드가 depth=0이다. 루트 노드 다음 즉, depth=1인 chosen 노드가 아니면
+ * 함수를 빠져나간다. (skip)
+ */
 	if (depth != 1 || !data ||
 	    (strcmp(uname, "chosen") != 0 && strcmp(uname, "chosen@0") != 0))
 		return 0;

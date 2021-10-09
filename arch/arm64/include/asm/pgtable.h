@@ -84,6 +84,11 @@ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
 #define __phys_to_pte_val(phys)	(phys)
 #endif
 
+/*
+ * IAMROOT, 2021.10.09: a
+ * pfn_pte(pfn, prot):
+ *   pfn과 속성 prot를 결합하여 pte 디스크립터를 만들어 반환한다.
+ */
 #define pte_pfn(pte)		(__pte_to_phys(pte) >> PAGE_SHIFT)
 #define pfn_pte(pfn,prot)	\
 	__pte(__phys_to_pte_val((phys_addr_t)(pfn) << PAGE_SHIFT) | pgprot_val(prot))
@@ -105,6 +110,18 @@ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
 #define pte_tagged(pte)		((pte_val(pte) & PTE_ATTRINDX_MASK) == \
 				 PTE_ATTRINDX(MT_NORMAL_TAGGED))
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * pte_cont_addr_end(addr, end):
+ *     addr 주소가 CONT_PTE_SIZE 단위의 다음 주소를 반환한다. (매핑할 다음 주소)
+ *     단 end를 초과하는 경우 end 값을 반환한다.
+ *     예) 4K, 4레벨의 경우 4K * 16 = 64K 단위의 다음 주소를 반환한다.
+ * 
+ * pmd_cont_addr_end(addr, end):
+ *     addr 주소가 CONT_PMD_SIZE 단위의 다음 주소를 반환한다. (매핑할 다음 주소)
+ *     단 end를 초과하는 경우 end 값을 반환한다.
+ *     예) 4K, 4레벨의 경우 2M * 16 = 32M 단위의 다음 주소를 반환한다.
+ */
 #define pte_cont_addr_end(addr, end)						\
 ({	unsigned long __boundary = ((addr) + CONT_PTE_SIZE) & CONT_PTE_MASK;	\
 	(__boundary - 1 < (end) - 1) ? __boundary : (end);			\
@@ -252,6 +269,10 @@ static inline pte_t pte_mkdevmap(pte_t pte)
 	return set_pte_bit(pte, __pgprot(PTE_DEVMAP | PTE_SPECIAL));
 }
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * @ptep 주소에 @pte 값을 기록한다. (매핑/언매핑)
+ */
 static inline void set_pte(pte_t *ptep, pte_t pte)
 {
 	WRITE_ONCE(*ptep, pte);
@@ -705,23 +726,11 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 {
 	return (unsigned long)__va(p4d_page_paddr(p4d));
 }
-/*
- * IAMROOT, 2021.10.02:
- * - 가상주소인 dir(p4d entry주소)에 저장된 물리주소(pud 시작주소)를 구한후,
- *   addr의 pud_index를 구하고 그 offset만큼을 구해 최종적으로
- *   pud entry의 물리주소를 구한다.
- *
- * - sizeof(pud_t)를 곱하는 이유
- *   pud_t size단위로 index만큼을 곱해 byte단위의 주소를 구하기 위함.
- *   index * 8과 같은 의미.
- *   pud_t *a; 라는 게 있을때 b = a + index를 하는것과 같음
- */
-/* Find an entry in the frst-level page table. */
-#define pud_offset_phys(dir, addr)	(p4d_page_paddr(READ_ONCE(*(dir))) + pud_index(addr) * sizeof(pud_t))
 
 /*
  * IAMROOT, 2021.10.09: 
  * 1) pud_set_fixmap_offset() -> 2) pud_set_fixmap() -> 3) set_fixmap_offset()
+ *			      -> 4) __set_fixmap() -> 5) set_pte()
 
  * 1) pud_set_fixmap_offset(p4d, addr):
  *   p4d 엔트리 주소인 @p4d와 가상 주소 @addr을 사용하여 pud 테이블을 찾아
@@ -729,7 +738,21 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
  *
  * 2) pud_set_fixmap(addr):
  *   전달받은 pud table의 물리주소 @addr를 FIX_PUD에 매핑한다.
+ *
+ * pud_offset_phys(dir, addr):
+ *   - 가상주소인 dir(p4d entry주소)에 저장된 물리주소(pud 시작주소)를 구한후,
+ *     addr의 pud_index를 구하고 그 offset만큼을 구해 최종적으로
+ *     pud entry의 물리주소를 구한다.
+ *
+ *   - sizeof(pud_t)를 곱하는 이유
+ *     pud_t size단위로 index만큼을 곱해 byte단위의 주소를 구하기 위함.
+ *     index * 8과 같은 의미.
+ *     pud_t *a; 라는 게 있을때 b = a + index를 하는것과 같음
  */
+
+/* Find an entry in the frst-level page table. */
+#define pud_offset_phys(dir, addr)	(p4d_page_paddr(READ_ONCE(*(dir))) + pud_index(addr) * sizeof(pud_t))
+
 #define pud_set_fixmap(addr)		((pud_t *)set_fixmap_offset(FIX_PUD, addr))
 
 #define pud_set_fixmap_offset(p4d, addr)	pud_set_fixmap(pud_offset_phys(p4d, addr))

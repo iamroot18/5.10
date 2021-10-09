@@ -130,6 +130,19 @@
 /*
  * Contiguous page definitions.
  */
+/*
+ * IAMROOT, 2021.10.09: 
+ * 4K, 4레벨 기준)
+ * CONT_PTE_SHIFT=16
+ * CONT_PTES=16
+ * CONT_PTE_SIZE=64K
+ * CONT_PTE_MASK=0xffff_ffff_ffff_0000
+ *
+ * CONT_PMD_SHIFT=24
+ * CONT_PMDS=16
+ * CONT_PMD_SIZE=32M
+ * CONT_PMD_MASK=0xffff_ffff_fe00_0000
+ */
 #define CONT_PTE_SHIFT		(CONFIG_ARM64_CONT_PTE_SHIFT + PAGE_SHIFT)
 #define CONT_PTES		(1 << (CONT_PTE_SHIFT - PAGE_SHIFT))
 #define CONT_PTE_SIZE		(CONT_PTES * PAGE_SIZE)

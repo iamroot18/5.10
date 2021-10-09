@@ -734,6 +734,25 @@ static inline void arch_swap_restore(swp_entry_t entry, struct page *page)
  * pgd_addr_end(addr, end):
  *     addr 주소가 PGDIR_SIZE 단위의 다음 주소를 반환한다. (매핑할 다음 주소)
  *     단 end를 초과하는 경우 end 값을 반환한다.
+ *     예) 4K, 4레벨의 경우 512G 단위의 다음 주소를 반환한다.
+ * 
+ * pgd_addr_end(addr, end):
+ *     addr 주소가 PGDIR_SIZE 단위의 다음 주소를 반환한다. (매핑할 다음 주소)
+ *     단 end를 초과하는 경우 end 값을 반환한다.
+ *     예) 4K, 4레벨의 경우 512G 단위의 다음 주소를 반환한다.
+ * 
+ * p4d_addr_end(addr, end):
+ *     ARM64의 경우 pgd 테이블을 그래도 이용하므로 위의 함수와 동일하다.
+ * 
+ * pud_addr_end(addr, end):
+ *     addr 주소가 P4D_SIZE 단위의 다음 주소를 반환한다. (매핑할 다음 주소)
+ *     단 end를 초과하는 경우 end 값을 반환한다.
+ *     예) 4K, 4레벨의 경우 1G 단위의 다음 주소를 반환한다.
+ * 
+ * pmd_addr_end(addr, end):
+ *     addr 주소가 PMD_SIZE 단위의 다음 주소를 반환한다. (매핑할 다음 주소)
+ *     단 end를 초과하는 경우 end 값을 반환한다.
+ *     예) 4K, 4레벨의 경우 2M 단위의 다음 주소를 반환한다.
  */
 #define pgd_addr_end(addr, end)						\
 ({	unsigned long __boundary = ((addr) + PGDIR_SIZE) & PGDIR_MASK;	\

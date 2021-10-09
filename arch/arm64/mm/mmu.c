@@ -158,6 +158,11 @@ static void init_pte(pmd_t *pmdp, unsigned long addr, unsigned long end,
 {
 	pte_t *ptep;
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * pte 테이블에 매핑하는 동안 FIX_PTE에 pte 테이블을 매핑한다.
+ *   (pte 테이블의 물리주소는 pmdp와 addr로 알아온다)
+ */
 	ptep = pte_set_fixmap_offset(pmdp, addr);
 	do {
 		pte_t old_pte = READ_ONCE(*ptep);
@@ -186,6 +191,11 @@ static void alloc_init_cont_pte(pmd_t *pmdp, unsigned long addr,
 	unsigned long next;
 	pmd_t pmd = READ_ONCE(*pmdp);
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * - 전 단계의 pmd 엔트리 값이 없으면 매핑이 되어 있지 않은 경우이다.
+ *   이러한 경우 새로운 pte 테이블을 할당한다. 
+ */
 	BUG_ON(pmd_sect(pmd));
 	if (pmd_none(pmd)) {
 		phys_addr_t pte_phys;
@@ -199,9 +209,14 @@ static void alloc_init_cont_pte(pmd_t *pmdp, unsigned long addr,
 	do {
 		pgprot_t __prot = prot;
 
+/* IAMROOT, 2021.10.09: PAGE_SIZE * 16의 다음 주소 */
 		next = pte_cont_addr_end(addr, end);
 
 		/* use a contiguous mapping if the range is suitably aligned */
+/*
+ * IAMROOT, 2021.10.09: 
+ * 16 X PAGE_SIZE의 cont pte 매핑이 가능한 경우 PTE_CONT 비트를 설정한다.
+ */
 		if ((((addr | next | phys) & ~CONT_PTE_MASK) == 0) &&
 		    (flags & NO_CONT_MAPPINGS) == 0)
 			__prot = __pgprot(pgprot_val(prot) | PTE_CONT);
@@ -219,12 +234,22 @@ static void init_pmd(pud_t *pudp, unsigned long addr, unsigned long end,
 	unsigned long next;
 	pmd_t *pmdp;
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * pmd 테이블에 매핑하는 동안 FIX_PMD에 pmd 테이블을 매핑한다.
+ *   (pmd 테이블의 물리주소는 pudp와 addr로 알아온다)
+ */
 	pmdp = pmd_set_fixmap_offset(pudp, addr);
 	do {
 		pmd_t old_pmd = READ_ONCE(*pmdp);
 
+/* IAMROOT, 2021.10.09: PMD_SIZE의 다음 주소 */
 		next = pmd_addr_end(addr, end);
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * PMD_SIZE 단위로 정렬이 가능한 경우 pmd 블럭 매핑을 한다.
+ */
 		/* try section mapping first */
 		if (((addr | next | phys) & ~SECTION_MASK) == 0 &&
 		    (flags & NO_BLOCK_MAPPINGS) == 0) {
@@ -249,6 +274,12 @@ static void init_pmd(pud_t *pudp, unsigned long addr, unsigned long end,
 	pmd_clear_fixmap();
 }
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * cont pmd 매핑을 한다. (4K 기준 2M * 16 = 32M)
+ *   pmd 단위가 16개 연속 가능한 경우 이렇게 처리하고, 
+ *   그렇지 않은 경우 single pmd 매핑을 한다.
+ */
 static void alloc_init_cont_pmd(pud_t *pudp, unsigned long addr,
 				unsigned long end, phys_addr_t phys,
 				pgprot_t prot,
@@ -260,6 +291,11 @@ static void alloc_init_cont_pmd(pud_t *pudp, unsigned long addr,
 	/*
 	 * Check for initial section mappings in the pgd/pud.
 	 */
+/*
+ * IAMROOT, 2021.10.09: 
+ * - 전 단계의 pud 엔트리 값이 없으면 매핑이 되어 있지 않은 경우이다.
+ *   이러한 경우 새로운 pmd 테이블을 할당한다. 
+ */
 	BUG_ON(pud_sect(pud));
 	if (pud_none(pud)) {
 		phys_addr_t pmd_phys;
@@ -272,10 +308,14 @@ static void alloc_init_cont_pmd(pud_t *pudp, unsigned long addr,
 
 	do {
 		pgprot_t __prot = prot;
-
+/* IAMROOT, 2021.10.09: 16 x PMD_SIZE의 다음 주소 */
 		next = pmd_cont_addr_end(addr, end);
 
 		/* use a contiguous mapping if the range is suitably aligned */
+/*
+ * IAMROOT, 2021.10.09: 
+ * 16 X PMD_SIZE의 cont pmd 매핑이 가능한 경우 PTE_CONT 비트를 설정한다.
+ */
 		if ((((addr | next | phys) & ~CONT_PMD_MASK) == 0) &&
 		    (flags & NO_CONT_MAPPINGS) == 0)
 			__prot = __pgprot(pgprot_val(prot) | PTE_CONT);
@@ -286,12 +326,23 @@ static void alloc_init_cont_pmd(pud_t *pudp, unsigned long addr,
 	} while (addr = next, addr != end);
 }
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * 4K 페이지 테이블을 사용하는 경우 @addr, @next 및 @phys가 모두 
+ * PUD 사이즈 단위로 정렬된 경우 1G 블럭 매핑을 허용한다.
+ * (PUD_MASK: 0xffff_ffff_c000_0000)
+ *
+ *   예) addr=0x4000_0000, next=8000_0000, phys=0xc000_0000 -> true
+ *       addr=0x4000_0000, next=4100_0000, phys=0xc000_0000 -> false
+ *       addr=0x4000_0000, next=8000_0000, phys=0xc200_0000 -> false
+ */
 static inline bool use_1G_block(unsigned long addr, unsigned long next,
 			unsigned long phys)
 {
 	if (PAGE_SHIFT != 12)
 		return false;
 
+/* IAMROOT, 2021.10.09: 하위 30 비트 중 하나라도 1이 있는 경우 false 반환 */
 	if (((addr | next | phys) & ~PUD_MASK) != 0)
 		return false;
 
@@ -327,7 +378,7 @@ static void alloc_init_pud(pgd_t *pgdp, unsigned long addr, unsigned long end,
 
 /*
  * IAMROOT, 2021.10.09: 
- * FIX_PUD에 pud 테이블을 매핑한다.
+ * pud 테이블에 매핑하는 동안 FIX_PUD에 pud 테이블을 매핑한다.
  *   (pud 테이블의 물리주소는 p4dp와 addr로 알아온다)
  */
 	pudp = pud_set_fixmap_offset(p4dp, addr);
@@ -433,6 +484,14 @@ static phys_addr_t pgd_pgtable_alloc(int shift)
  * This function can only be used to modify existing table entries,
  * without allocating new levels of table. Note that this permits the
  * creation of new section or page entries.
+ */
+/*
+ * IAMROOT, 2021.10.09: 
+ * NO_CONT_MAPPINGS 옵션을 사용하고, 할당 함수 없이 매핑만을 요청한다. 
+ *
+ * fixmap_remap_fdt() 함수에서 fdt를 매핑할 때 이 함수를 통해 매핑한다.
+ * early_fixmap_init() 함수를 통해 bm_pud[] -> bm_pmd[] -> bm_pte[] 테이블을
+ * 사용하므로 페이지 테이블 할당이 필요없어 페이지 할당 함수에 NULL을 사용한다.
  */
 static void __init create_mapping_noalloc(phys_addr_t phys, unsigned long virt,
 				  phys_addr_t size, pgprot_t prot)
@@ -1392,12 +1451,25 @@ void *__init fixmap_remap_fdt(phys_addr_t dt_phys, int *size, pgprot_t prot)
 	dt_virt = (void *)dt_virt_base + offset;
 
 	/* map the first chunk so we can read the size from the header */
+/*
+ * IAMROOT, 2021.10.09: 
+ * 처음에 fdt header를 읽어오기 위해 한 조각의 매핑을 시도한다. 
+ * (커널 옵션에 따라 섹션 매핑 또는 페이지 매핑)
+ */
 	create_mapping_noalloc(round_down(dt_phys, SWAPPER_BLOCK_SIZE),
 			dt_virt_base, SWAPPER_BLOCK_SIZE, prot);
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * 매직 넘버를 통해서 fdt 테이블인지 확인한다.
+ */
 	if (fdt_magic(dt_virt) != FDT_MAGIC)
 		return NULL;
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * size를 알아온 후 나머지 매핑되지 않은 부분이 있는 경우 다시 매핑한다.
+ */
 	*size = fdt_totalsize(dt_virt);
 	if (*size > MAX_FDT_SIZE)
 		return NULL;
