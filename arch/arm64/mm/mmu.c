@@ -308,6 +308,14 @@ static void alloc_init_pud(pgd_t *pgdp, unsigned long addr, unsigned long end,
 	p4d_t *p4dp = p4d_offset(pgdp, addr);
 	p4d_t p4d = READ_ONCE(*p4dp);
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * - 전 단계의 p4d 엔트리 값이 없으면 매핑이 되어 있지 않은 경우이다.
+ *   이러한 경우 새로운 pud 테이블을 할당한다. 
+ * - 정규 매핑일 때에는 @pgtable_alloc에 함수가 지정되어 들어오나,
+ *   fixmap_remap_fdt() -> create_mapping_noalloc()을 통해 들어온 경우
+ *   할당 함수를 지정하지 않는다.
+ */
 	if (p4d_none(p4d)) {
 		phys_addr_t pud_phys;
 		BUG_ON(!pgtable_alloc);
@@ -317,6 +325,11 @@ static void alloc_init_pud(pgd_t *pgdp, unsigned long addr, unsigned long end,
 	}
 	BUG_ON(p4d_bad(p4d));
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * FIX_PUD에 pud 테이블을 매핑한다.
+ *   (pud 테이블의 물리주소는 p4dp와 addr로 알아온다)
+ */
 	pudp = pud_set_fixmap_offset(p4dp, addr);
 	do {
 		pud_t old_pud = READ_ONCE(*pudp);
@@ -365,6 +378,15 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 	if (WARN_ON((phys ^ virt) & ~PAGE_MASK))
 		return;
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * - virt 주소와 size를 사용하여 매핑 시작 주소와 끝 주소를 산출한다.
+ *   매핑 시작 주소(addr)는 virt를 페이지 단위로 round down하여 사용하고,
+ *   매핑 끝 주소(end)는 virt+size를 페이지 단위로 round up하여 사용한다.
+ *
+ * 예) 4K, 4 레벨의 경우 PGDIR_SIZE=512G이다.
+ *    따라서 512G 단위로 alloc_init_pud() 함수를 호출한다.
+ */
 	phys &= PAGE_MASK;
 	addr = virt & PAGE_MASK;
 	end = PAGE_ALIGN(virt + size);
@@ -1186,6 +1208,11 @@ static inline pmd_t * fixmap_pmd(unsigned long addr)
 	return pmd_offset_kimg(pudp, addr);
 }
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * - 가상 주소 @addr에 대해 fixmap이 사용하는 bm_pte 테이블의 엔트리 주소를
+ *   반환한다.
+ */
 static inline pte_t * fixmap_pte(unsigned long addr)
 {
 	return &bm_pte[pte_index(addr)];
@@ -1199,6 +1226,14 @@ static inline pte_t * fixmap_pte(unsigned long addr)
  * directly on kernel symbols (bm_p*d). This function is called too early to use
  * lm_alias so __p*d_populate functions must be used to populate with the
  * physical address from __pa_symbol.
+ */
+
+/*
+ * IAMROOT, 2021.10.09: 
+ *                      pgd=p4d  ->    pud  ->      pmd   ->     pte
+ *                   ------------------------------------------------
+ * - normal case:    init_pg_dir -> bm_pud  ->   bm_pmd   ->  bm_pte
+ * - 16K, 4lvl case: init_pg_dir -> 기존pud ->   bm_pmd   ->  bm_pte
  */
 void __init early_fixmap_init(void)
 {
@@ -1272,6 +1307,13 @@ void __init early_fixmap_init(void)
 	BUILD_BUG_ON((__fix_to_virt(FIX_BTMAP_BEGIN) >> PMD_SHIFT)
 		     != (__fix_to_virt(FIX_BTMAP_END) >> PMD_SHIFT));
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * - fixmap의 중간 부분인 FIXADDR_START 가상 주소로 페이지 테이블을 구성한다.
+ *   그리고 이 공간이 early_ioremap() API에서 사용하는 BTMAP을 커버할 수 
+ *   있는지 체크한다.
+ */
+
 	if ((pmdp != fixmap_pmd(fix_to_virt(FIX_BTMAP_BEGIN)))
 	     || pmdp != fixmap_pmd(fix_to_virt(FIX_BTMAP_END))) {
 		WARN_ON(1);
@@ -1291,6 +1333,10 @@ void __init early_fixmap_init(void)
 /*
  * Unusually, this is also called in IRQ context (ghes_iounmap_irq) so if we
  * ever need to use IPIs for TLB broadcasting, then we're in trouble here.
+ */
+/*
+ * IAMROOT, 2021.10.09: 
+ * 물리주소 @phys를 fixmap이 사용하는 bm_pte[]의 엔트리에 매핑/언매핑 한다.
  */
 void __set_fixmap(enum fixed_addresses idx,
 			       phys_addr_t phys, pgprot_t flags)

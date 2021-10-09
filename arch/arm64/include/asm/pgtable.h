@@ -719,7 +719,19 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 /* Find an entry in the frst-level page table. */
 #define pud_offset_phys(dir, addr)	(p4d_page_paddr(READ_ONCE(*(dir))) + pud_index(addr) * sizeof(pud_t))
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * 1) pud_set_fixmap_offset() -> 2) pud_set_fixmap() -> 3) set_fixmap_offset()
+
+ * 1) pud_set_fixmap_offset(p4d, addr):
+ *   p4d 엔트리 주소인 @p4d와 가상 주소 @addr을 사용하여 pud 테이블을 찾아
+ *   FIX_PUD에 매핑한다.
+ *
+ * 2) pud_set_fixmap(addr):
+ *   전달받은 pud table의 물리주소 @addr를 FIX_PUD에 매핑한다.
+ */
 #define pud_set_fixmap(addr)		((pud_t *)set_fixmap_offset(FIX_PUD, addr))
+
 #define pud_set_fixmap_offset(p4d, addr)	pud_set_fixmap(pud_offset_phys(p4d, addr))
 #define pud_clear_fixmap()		clear_fixmap(FIX_PUD)
 

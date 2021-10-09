@@ -729,6 +729,12 @@ static inline void arch_swap_restore(swp_entry_t entry, struct page *page)
  * vma end wraps to 0, rounded up __boundary may wrap to 0 throughout.
  */
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * pgd_addr_end(addr, end):
+ *     addr 주소가 PGDIR_SIZE 단위의 다음 주소를 반환한다. (매핑할 다음 주소)
+ *     단 end를 초과하는 경우 end 값을 반환한다.
+ */
 #define pgd_addr_end(addr, end)						\
 ({	unsigned long __boundary = ((addr) + PGDIR_SIZE) & PGDIR_MASK;	\
 	(__boundary - 1 < (end) - 1)? __boundary: (end);		\

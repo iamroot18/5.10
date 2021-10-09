@@ -177,6 +177,10 @@ static void __init smp_build_mpidr_hash(void)
 		pr_warn("Large number of MPIDR hash buckets detected\n");
 }
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * FDT를 fixmap에 매핑한 후 스캔하여 몇 개의 주요 정보를 알아온다.
+ */
 static void __init setup_machine_fdt(phys_addr_t dt_phys)
 {
 	int size;

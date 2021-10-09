@@ -219,6 +219,12 @@ int overcommit_policy_handler(struct ctl_table *, int, void *, size_t *,
 #define nth_page(page,n) pfn_to_page(page_to_pfn((page)) + (n))
 
 /* to align the pointer to the (next) page boundary */
+/*
+ * IAMROOT, 2021.10.09: 
+ * 페이지 단위로 round up한 주소를 반환한다.
+ * 예) 0x1234 -> 0x2000
+ *     0x1000 -> 0x1000
+ */
 #define PAGE_ALIGN(addr) ALIGN(addr, PAGE_SIZE)
 
 /* test whether an address (unsigned long or pointer) is aligned to PAGE_SIZE */

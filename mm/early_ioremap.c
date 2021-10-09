@@ -72,6 +72,11 @@ static void __iomem *prev_map[FIX_BTMAPS_SLOTS] __initdata;
 static unsigned long prev_size[FIX_BTMAPS_SLOTS] __initdata;
 static unsigned long slot_virt[FIX_BTMAPS_SLOTS] __initdata;
 
+/*
+ * IAMROOT, 2021.10.09: 
+ * early_ioremap()을 위해 사용하는 fixmap용 7개의 BTMAP 공간에 대한
+ * 가상 주소를 산출하여 slot_virt[]에 대입해둔다.
+ */
 void __init early_ioremap_setup(void)
 {
 	int i;
