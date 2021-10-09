@@ -113,12 +113,20 @@ struct qnode {
 /*
  * IAMROOT, 2021.09.25: 
  * - mcs queue node는 cpu별로 최대 4개씩 구성된다.
+ *
+ * static __attribute__(section(".data..percpu" "..shared_aligned")))
+ *        __typeof__(struct qnode) qnodes[4]
+ *        __attribute__((__aligned__((1 << (6)))));
  */
 static DEFINE_PER_CPU_ALIGNED(struct qnode, qnodes[MAX_NODES]);
 /*
  * IAMROOT, 2021.10.02:
  * - tail에 set되는 cpu는 1씩 증가한 상태로 쓴다(0은 no tail의 의미로
  *   쓰기때문)
+ *
+ * - tail에는 cpu필드와 idx필드가 각각 존재한다.
+ *   cpu = 현재 cpu 번호 + 1.
+ *   idx = nest count (qnodes에서 MCS node의 인덱스로 사용).
  */
 /*
  * We must be able to distinguish between no-tail and the tail at 0:0,
@@ -135,6 +143,11 @@ static inline __pure u32 encode_tail(int cpu, int idx)
 	return tail;
 }
 
+/*
+ * IAMROOT, 2021.10.09:
+ * - 32비트 tail값에 들어있는 cpu와 idx 값을 기반으로
+ *   percpu qnodes상에서 알맞는 MCS node를 찾아내서 주소를 리턴한다.
+ */
 static inline __pure struct mcs_spinlock *decode_tail(u32 tail)
 {
 	int cpu = (tail >> _Q_TAIL_CPU_OFFSET) - 1;
@@ -143,6 +156,10 @@ static inline __pure struct mcs_spinlock *decode_tail(u32 tail)
 	return per_cpu_ptr(&qnodes[idx].mcs, cpu);
 }
 
+/*
+ * IAMROOT, 2021.10.09:
+ * qnode base를 기준으로 idx만큼 떨어진 MCS node의 위치를 리턴한다.
+ */
 static inline __pure
 struct mcs_spinlock *grab_mcs_node(struct mcs_spinlock *base, int idx)
 {
@@ -363,9 +380,17 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 
 	BUILD_BUG_ON(CONFIG_NR_CPUS >= (1U << _Q_TAIL_CPU_BITS));
 
+/*
+ * IAMROOT, 2021.10.09:
+ * pv_enabled: 항상 false 리턴.
+ */
 	if (pv_enabled())
 		goto pv_queue;
 
+/*
+ * IAMROOT, 2021.10.09:
+ * virt_spin_lock: 항상 false 리턴.
+ */
 	if (virt_spin_lock(lock))
 		return;
 	/*
@@ -407,7 +432,7 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 		goto queue;
 /*
  * IAMROOT, 2021.10.02:
- * - pending old값이 val에 위치하고 pending을 set 한다.
+ * - previous lock (old) 값이 val에 위치하고 pending을 set 한다.
  */
 	/*
 	 * trylock || pending
@@ -417,7 +442,7 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 	val = queued_fetch_set_pending_acquire(lock);
 /*
  * IAMROOT, 2021.10.02:
- * - 만약에 old가 pending이나 tail이 set되있다면, 다른 cpu들이 현재 cpu보다
+ * - 만약에 old의 pending이나 tail에 값이 있다면, 다른 cpu들이 현재 cpu보다
  *   pending이나 queue로 기다리고 있게 되므로 바로 queue로 직행한다.
  *
  * - fetch_set_pending_acquire 이후 상태
@@ -435,6 +460,7 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 	 */
 	if (unlikely(val & ~_Q_LOCKED_MASK)) {
 
+/* IAMROOT, 2021.10.10: old의 pending이 0이었다면 */
 		/* Undo PENDING if we set it. */
 		if (!(val & _Q_PENDING_MASK))
 			clear_pending(lock);
@@ -479,17 +505,17 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 queue:
 	lockevent_inc(lock_slowpath);
 pv_queue:
+	node = this_cpu_ptr(&qnodes[0].mcs);
 /*
  * IAMROOT, 2021.10.02:
- * - 현재 cpu 번호를 가져와 tail을 set한다.
+ * - 현재 cpu 번호와 nest count를 가져와 tail을 set한다.
  */
-	node = this_cpu_ptr(&qnodes[0].mcs);
 	idx = node->count++;
 	tail = encode_tail(smp_processor_id(), idx);
 /*
  * IAMROOT, 2021.10.02:
- * - MAX_NODES가 넘는것은 거의 bug라 봐도 무방하지만 예외 처리 차원에서
- *   이렇게 처리해놓은 것으로 보인다.
+ * - idx가 MAX_NODES의 값을 넘는것은 거의 bug라 봐도 무방하지만
+ *   예외 처리 차원에서 이렇게 처리해놓은 것으로 보인다.
  */
 	/*
 	 * 4 nodes are allocated based on the assumption that there will
@@ -507,23 +533,29 @@ pv_queue:
 		goto release;
 	}
 
+/*
+ * IAMROOT, 2021.10.09:
+ * tail이 qnodes상에 어디에 들어갈지
+ * idx를 바탕으로 주소를 받아온다.
+ */
 	node = grab_mcs_node(node, idx);
 
 	/*
 	 * Keep counts of non-zero index values:
 	 */
 	lockevent_cond_inc(lock_use_node2 + idx - 1, idx);
-/*
- * IAMROOT, 2021.10.02:
- * - queue의 마지막에 들어갈 node를 이제 초기화 하는 과정.
- */
+
 	/*
 	 * Ensure that we increment the head node->count before initialising
 	 * the actual node. If the compiler is kind enough to reorder these
 	 * stores, then an IRQ could overwrite our assignments.
 	 */
 	barrier();
-
+/*
+ * IAMROOT, 2021.10.02:
+ * - queue의 마지막에 들어갈 node를 초기화 하는 과정.
+ * - tail이므로 locked는 0, next는 NULL로 세팅.
+ */
 	node->locked = 0;
 	node->next = NULL;
 	pv_init_node(node);
@@ -548,7 +580,8 @@ pv_queue:
 	smp_wmb();
 /*
  * IAMROOT, 2021.10.02:
- * - 만들어 놨던 tail값을 실제 설정하여 queue에 node를 추가한다.
+ * - lock->tail의 값을 새로운 tail로 set하고
+ *   previous tail값을 old로 받아온다.
  */
 	/*
 	 * Publish the updated tail.
@@ -561,15 +594,19 @@ pv_queue:
 	next = NULL;
 /*
  * IAMROOT, 2021.10.02:
- * - old값 tail이 존재한다는것은 결국 기존에 queue에 대기했던 node가
- *   존재한단 것이고, 해당 node의 next에 현재 node를 가리켜야 되므로
- *   그 과정을 설정하는것.
+ * - old값에 tail이 존재한다는것은 결국 기존에 queue에 대기했던 node가
+ *   존재한단 것이고, 해당 node의 next가 현재 node를 가리키게 해야한다.
  */
 	/*
 	 * if there was a previous node; link it and wait until reaching the
 	 * head of the waitqueue.
 	 */
 	if (old & _Q_TAIL_MASK) {
+/*
+ * IAMROOT, 2021.10.09:
+ * qnodes에 있는 old의 주소를 prev로 가져온다.
+ * prev->next가 새롭게 설정한 tail의 주소로 세팅된다.
+ */
 		prev = decode_tail(old);
 
 		/* Link @node into the waitqueue. */
