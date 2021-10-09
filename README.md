@@ -107,3 +107,7 @@
 ### 19주차
 - 2021.10.02, Zoom 온라인(19명 참석)
 - spinlock, early_fixmap_init() 진행중
+
+### 20주차
+- 2021.10.09, Zoom 온라인(18명 참석)
+-  setup_machine_fdt() -> early_init_dt_scan_nodes() 진행중
