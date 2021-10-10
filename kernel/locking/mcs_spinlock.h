@@ -15,12 +15,37 @@
 
 #include <asm/mcs_spinlock.h>
 
+/*
+ * IAMROOT, 2021.10.09:
+ *
+ * qspinlock 구현에 사용되는 mcs 노드에 대한 구조체이다.
+ * locked: 1=lock, 0=unlock.
+ *  count: nest count (최대 4).
+ */
 struct mcs_spinlock {
 	struct mcs_spinlock *next;
 	int locked; /* 1 if lock acquired */
 	int count;  /* nesting count, see qspinlock.c */
 };
 
+/*
+ * IAMROOT, 2021.10.09:
+ *
+ * - contended queue 에서 uncontended queue 상태로 가기 위한 매크로.
+ *
+ * - spin-waiting:
+ *     l값이 0(=unlock)이면 sleep하고
+ *     l값이 변화할때마다 깨어나서 l값을 다시 확인.
+ *     l값이 1(=lock)이 되면 return한다.
+ *
+ * - 실제 쓰이는 코드의 문맥에서 생각해보면,
+ *   uncontended queue 에 있는 MCS node가 uncontended 상태로 가기 전에
+ *   next에 있는 MCS node의 locked값을 1로 만들어 주게 되고,
+ *   (아래의 arch_mcs_spin_unlock_contended 참조)
+ *   next에 있는 MCS node는 uncontended queue 상태로 넘어가게 된다.
+ *
+ * - 단방향 베리어 적용 (acquire).
+ */
 #ifndef arch_mcs_spin_lock_contended
 /*
  * Using smp_cond_load_acquire() provides the acquire semantics
@@ -35,6 +60,18 @@ do {									\
 } while (0)
 #endif
 
+/*
+ * IAMROOT, 2021.10.09:
+ *
+ * - target MCS node의 상태를 contended queue에서 uncontended queue 상태로 만들기 위한 매크로.
+ *
+ * - target MCS node의 locked 값을 1로 바꾸어 준다.
+ *
+ * - arch_mcs_spin_lock_contended와 연관 지어 생각해 보면
+ *   왜 함수의 이름이 unlock이고 release인지 알 수 있다.
+ *
+ * - 단방향 베리어 적용 (release).
+ */
 #ifndef arch_mcs_spin_unlock_contended
 /*
  * smp_store_release() provides a memory barrier to ensure all

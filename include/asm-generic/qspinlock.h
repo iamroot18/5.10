@@ -98,6 +98,9 @@ static __always_inline void queued_spin_lock(struct qspinlock *lock)
  * - val = 0 으로 비교하는 이유
  *   spin_lock_init에서 val을 0으로 초기화 시킨다. 그러므로 old값이
  *   spin_lock_init에서 초기화한 0일 것이고, 해당 old값인 0으로 비교하는것이다.
+ *
+ * - lock 획득 성공시 1,
+ *   lock 획득 실패시 0을 리턴한다.
  */
 	if (likely(atomic_try_cmpxchg_acquire(&lock->val, &val, _Q_LOCKED_VAL)))
 		return;
