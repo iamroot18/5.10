@@ -1241,6 +1241,7 @@ void vmemmap_free(unsigned long start, unsigned long end,
 /*
  * IAMROOT, 2021.10.02:
  * - 가상주소인 addr에 해당하는 pud entry주소를 반환한다.
+ *   fixmap은 kernel image안의 symbol 정의이므로 xxx_offset_kimg를 사용한다.
  */
 static inline pud_t * fixmap_pud(unsigned long addr)
 {
@@ -1256,6 +1257,7 @@ static inline pud_t * fixmap_pud(unsigned long addr)
 /*
  * IAMROOT, 2021.10.02:
  * - 가상주소인 addr에 해당하는 pmd entry주소를 반환한다.
+ *   fixmap은 kernel image안의 symbol 정의이므로 xxx_offset_kimg를 사용한다.
  */
 static inline pmd_t * fixmap_pmd(unsigned long addr)
 {
@@ -1276,10 +1278,6 @@ static inline pte_t * fixmap_pte(unsigned long addr)
 {
 	return &bm_pte[pte_index(addr)];
 }
-/*
- * IAMROOT, 2021.09.04:
- * - NEXT TODO(setup_arch)
- */
 /*
  * The p*d_populate functions call virt_to_phys implicitly so they can't be used
  * directly on kernel symbols (bm_p*d). This function is called too early to use
@@ -1310,15 +1308,25 @@ void __init early_fixmap_init(void)
  * - CONFIG_PGTABLE_LEVELS이 4레벨 이상이고,
  *   p4d가 매핑이 되있고 p4d가 bm_pud와 주소가 같지 않다면 이
  *   if문에 진입한다.
+ *   p4d가 할당이 안되있으면 무조건 할당을 하거나
+ *   p4d가 할당이 되있어도 bm_pud와 p4d가 일치한다면 굳이 p4d를 다시 세팅
+ *   할필요 없다는것이다.
+ *   하지만 p4d가 할당도 안되잇고 bm_pud가 일치도 안한다면 p4d를 세팅한다.
  *
- * | 16 | 1 | 11 | 11 | 11 | 14 |
+ * - 각 table별 bits.
+ *   (계산은 ARM64_HW_PGTABLE_LEVEL_SHIFT, PTRS_PER_PGD 주석 참고)
  *
+ *   | k/u | PGDIR bits | PUD bits | PMD bits | PTE bits | offset bits |
+ *   | 16  | 1          | 11       | 11       | 11       | 14          |
+ *
+ * - fixmap의 특정 주소를 예로 했을때 산출되는 각 table별 masking 값.
  *   1 : ---
  *   111_1101_1111 : 0x7df
  *   111_1111_1111 : 0x7ff
  *   001_0111_1110 : 0x17e
  *   
  * - 16k / 4 level일 경우 pgd는 2개 entry밖에 존재 하지 않는다.
+ *   (VA가 48bit이므로 PTRS_PER_PGD 계산법에서 2가 나오게 된다.)
  *
  * - p4d가 이미 kernel에 의해 mapping이 되있으므로 있는걸 사용하겠다는
  *   의미로 else에서 p4d를 pm_pud와 매핑하는것과는 다르게 이 if문에서는

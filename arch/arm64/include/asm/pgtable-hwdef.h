@@ -41,17 +41,26 @@
 
 /*
  * IAMROOT, 2021.08.14: 
- * - 4단계, n=0 -> 39 (PGD 테이블의 SHIFT)
- * - 4단계, n=1 -> 30 (PUD 테이블의 SHIFT)
- * - 4단계, n=2 -> 21 (PMD 테이블의 SHIFT)
- * - 4단계, n=3 -> 12 (PTE 테이블의 SHIFT)
+ * 4단계 일때 정리
+ *
+ *  PAGE_SIZE | PAGE_SHIFT | n | ARM64_HW_PGTABLE_LEVEL_SHIFT(n)
+ * -----------+------------+---+--------------------------------------------
+ *  4kb       | 12         | 0 | 39 (PGDIR_SHIFT)
+ *            |            | 1 | 30 (PUD_SHIFT)
+ *            |            | 2 | 21 (PMD_SHIFT)
+ *            |            | 3 | 12 (PTE 테이블의 SHIFT)
+ * -----------+------------+---+--------------------------------------------
+ *  16Kb      | 14         | 0 | 47 (PGDIR_SHIFT)
+ *            |            | 1 | 36 (PUD_SHIFT)
+ *            |            | 2 | 25 (PMD_SHIFT)
+ *            |            | 3 | 14 (PTE 테이블의 SHIFT)
  */
 #define ARM64_HW_PGTABLE_LEVEL_SHIFT(n)	((PAGE_SHIFT - 3) * (4 - (n)) + 3)
 
 /*
  * IAMROOT, 2021.08.14: 
  * 가장 하위 페이지 PTE 테이블에 들어가는 엔트리 수
- * - 4K -> 512
+ * - 4K -> 2^9 = 512
  */
 #define PTRS_PER_PTE		(1 << (PAGE_SHIFT - 3))
 
@@ -114,6 +123,16 @@
  * - PGDIR_SIZE:   4T (2^42)
  * - PGDIR_MASK:   0b1111 ....   0000000000000 (0 개수가 42개)
  * - PTRS_PER_PGD: 1024
+ *
+ * ------
+ *
+ * - VA_BITS 48, page size 16K 기준
+ *   CONFIG_PGTABLE_LEVELS : 4단계
+ *
+ * - PGDIR_SHIFT:  PGD에 사용할 SHIFT는 47
+ * - PGDIR_SIZE:   128T (2^47)
+ * - PGDIR_MASK:   0b1111 ....   0000000000000 (0 개수가 47개)
+ * - PTRS_PER_PGD: 2
  */
 #define PGDIR_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(4 - CONFIG_PGTABLE_LEVELS)
 #define PGDIR_SIZE		(_AC(1, UL) << PGDIR_SHIFT)

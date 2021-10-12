@@ -2,6 +2,10 @@
 #ifndef _PGTABLE_NOP4D_H
 #define _PGTABLE_NOP4D_H
 
+/*
+ * IAMROOT, 2021.10.12:
+ * p4d를 사용안하므로 pgd를 그대로 사용한다.
+ */
 #ifndef __ASSEMBLY__
 
 #define __PAGETABLE_P4D_FOLDED 1
@@ -33,6 +37,10 @@ static inline void pgd_clear(pgd_t *pgd)	{ }
  */
 #define set_pgd(pgdptr, pgdval)	set_p4d((p4d_t *)(pgdptr), (p4d_t) { pgdval })
 
+/*
+ * IAMROOT, 2021.10.12:
+ * p4d를 사용안하므로 pgd를 그대로 사용한다.
+ */
 static inline p4d_t *p4d_offset(pgd_t *pgd, unsigned long address)
 {
 	return (p4d_t *)pgd;

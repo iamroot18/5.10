@@ -396,9 +396,11 @@ static inline const void *__tag_set(const void *addr, u8 tag)
  *   x가 리니어매핑된 주소라면 리니어매핑 물리주소 변환을, 아니면
  *   kimg_to_phys 변환을 수행한다.
  *
- * - __is_lm_address
- *   리니어매핑 가상주소인 경우 true
- *   범위 0xffff_0000_0000_0000 ~ 0xffff_7fff_ffff_ffff
+ * - __is_lm_address : 리니어매핑 가상주소인 경우 true
+ *   top bit(VA bit)만을 검사하여 set되있으면 kernel image 영역이라고 판단한다.
+ *   VA 48bit의 경우 0xffff_80000_0000_0000 부터 kernel image가
+ *   mapping이 되있고 그 아래는 linear mapping 이므로(page table)
+ *   top bit만을 검사하는것으로 충분하다.
  *
  * - __lm_to_phys
  *   리니어매핑 가상주소를 물리주소로 변환한다.
@@ -418,6 +420,10 @@ static inline const void *__tag_set(const void *addr, u8 tag)
 	__is_lm_address(__x) ? __lm_to_phys(__x) : __kimg_to_phys(__x);	\
 })
 
+/*
+ * IAMROOT, 2021.10.12:
+ * symbol은 kernel image내에 있는 주소중 하나이므로 __kimg_to_phys를 사용한다.
+ */
 #define __pa_symbol_nodebug(x)	__kimg_to_phys((phys_addr_t)(x))
 
 #ifdef CONFIG_DEBUG_VIRTUAL
@@ -432,7 +438,7 @@ extern phys_addr_t __phys_addr_symbol(unsigned long x);
  * - __phys_to_virt
  *   물리주소를 리니어매핑된 가상주소로 변환.
  * - __phys_to_kimg
- *   물리주소를 image로 매핑된 가상주소도 변환.
+ *   물리주소를 image로 매핑된 가상주소로 변환.
  */
 #define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | PAGE_OFFSET)
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))

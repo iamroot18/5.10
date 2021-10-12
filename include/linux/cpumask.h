@@ -13,6 +13,9 @@
 #include <linux/atomic.h>
 #include <linux/bug.h>
 
+/* IAMROOT, 2021.09.30:
+ * CONFIG_NR_CPUS에 따라 compile 시점에 cpumask 크기가 정해짐이 보인다.
+ */
 /* Don't assign or return these: may not be this big! */
 typedef struct cpumask { DECLARE_BITMAP(bits, NR_CPUS); } cpumask_t;
 
@@ -33,12 +36,20 @@ typedef struct cpumask { DECLARE_BITMAP(bits, NR_CPUS); } cpumask_t;
  */
 #define cpumask_pr_args(maskp)		nr_cpu_ids, cpumask_bits(maskp)
 
+/* IAMROOT, 2021.09.30:
+ * NR_CPUS 는 compile time에 정해지고, nr_cpus_ids는 runtime에 정해진다.
+ */
 #if NR_CPUS == 1
 #define nr_cpu_ids		1U
 #else
 extern unsigned int nr_cpu_ids;
 #endif
 
+/* IAMROOT, 2021.09.30:
+ * cpumask를 stack을 쓰지 않고 alloc하여 사용한다는 의미이다. cpu가 많아지면
+ * copy보다는 pointer로 넘겨주는게 효율이 좋기때문이다.
+ * (cpumask_var_t 참고)
+ */
 #ifdef CONFIG_CPUMASK_OFFSTACK
 /* Assuming NR_CPUS is huge, a runtime limit is more efficient.  Also,
  * not all bits may be allocated. */
@@ -734,6 +745,10 @@ static inline unsigned int cpumask_size(void)
  * a cpumask_var_t variable itself (not its content) as read mostly.
  */
 #ifdef CONFIG_CPUMASK_OFFSTACK
+
+/* IAMROOT, 2021.09.30:
+ * 동적할당을 하는것이 보인다. alloc 및 free함수가 존재한다.
+ */
 typedef struct cpumask *cpumask_var_t;
 
 #define this_cpu_cpumask_var_ptr(x)	this_cpu_read(x)
@@ -753,6 +768,9 @@ static inline bool cpumask_available(cpumask_var_t mask)
 }
 
 #else
+/* IAMROOT, 2021.09.30:
+ * 정적할당을 하는것이 보인다. alloc 및 free함수가 실제 code가 없는것이 보인다.
+ */
 typedef struct cpumask cpumask_var_t[1];
 
 #define this_cpu_cpumask_var_ptr(x) this_cpu_ptr(x)

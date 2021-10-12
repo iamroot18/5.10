@@ -76,17 +76,24 @@ static inline unsigned long pud_index(unsigned long address)
 #endif
 /*
  * IAMROOT, 2021.10.02:
+ * VA 48bits, 4단계 table 기준 (ARM64_HW_PGTABLE_LEVEL_SHIFT 참고)
+ *
  * - address bit별 영역 정리
  *
- * address bits   | 16    | 9     | 9   | 9   | 9   | 12     | 
- *                | k/u   | PGD   | PUD | PMD | PTE | OFFSET |
- * size per entry | ----  | 512GB | 1GB | 2MB | 4KB | -----  |
- * ---
+ *                     | k/u   | PGD   | PUD  | PMD  | PTE  | OFFSET |
+ * --------------------+-------+-------+------+------+------+--------+
+ * 4kb address bits    | 16    | 9     | 9    | 9    | 9    | 12     | 
+ * 4kb size per entry  | ----  | 512GB | 1GBa | 2MB  | 4KB  | -----  |
+ * --------------------+-------+-------+------+------+------+--------+
+ * 16kb address bits   | 16    | 1     | 11   | 11   | 11   | 14     | 
+ * 16kb size per entry | ----  | 128TB | 64GB | 32MB | 16KB | -----  |
+ * (16kb/4일때 PGD bit가 1인것을 짚고넘어간다.)
  *
- * PAGE_SIZE 4KB 기준, 4단계 table
- * -(a >> 39) & (0x1ff) 
- * - ex)
- *   a : 0xffff_ff80_0000_0000 = 0x1ff
+ * - a : 0xffff_ff80_0000_0000 일때. masking 영역.
+ * PAGE_SIZE | PGDIR_SHIFT | PTRS_PER_PGD | pgd_index(a)       | result
+ * 4KB       | 39          | 512(0x200)   | (a >> 39 & (0x1ff) | 0x1ff
+ * 16KB      | 47          | 2            | (a >> 47 & (0x2)   | 1
+ *
  */
 #ifndef pgd_index
 /* Must be a compile-time constant, so implement it as a macro */
@@ -132,7 +139,11 @@ static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
 
 /*
  * IAMROOT, 2021.10.02:
- * - address에 해당하는 pud page table entry주소를 가져온다.
+ * - p4d : address의 p4d가 저장되있는 p4d entry
+ *   p4d entry에는 pud page table entry의 pa가 저장되있고(flag등이 or된상태로),
+ *   이 주소를 가상주소로 변환하고 address에서 pud_index를 구함으로써
+ *   address에 해당하는 pud va를 구한다.
+ *   
  * - page table entry에는 pa로 저장되어 있다.
  *   해당 entry에는 물리주소가 저장되있으므로 va로 변환이 되야 된다
  */
@@ -159,6 +170,10 @@ static inline pgd_t *pgd_offset_pgd(pgd_t *pgd, unsigned long address)
 #define pgd_offset(mm, address)		pgd_offset_pgd((mm)->pgd, (address))
 #endif
 
+/*
+ * IAMROOT, 2021.10.12:
+ * _k : kernel을 의미. init_mm을 사용한다.
+ */
 /*
  * a shortcut which implies the use of the kernel's pgd, instead
  * of a process's

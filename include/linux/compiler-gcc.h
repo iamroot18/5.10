@@ -16,6 +16,26 @@
 #endif
 
 /*
+ * IAMROOT, 2021.10.12:
+ * - 참고 : http://egloos.zum.com/studyfoss/v/5374731
+ *
+ *   RELOC_HIDE(p, offset) = (unsigned long)p + offset
+ *   
+ *   이렇게 type변환후 offset을 더한 의미밖에없다.
+ *
+ *   그럼에도 이걸 쓰는 이유는 만약 p가 Type *p라는 정의고 offset이 Type을
+ *   넘는 범위라고 할때 compiler가 잘못된 접근인줄 알고 의도치 않는 코드를
+ *   생성할수 있다고 한다.
+ *
+ *   그래도 일반적인 경우엔 사용할 일이 없으며 굳이 쓴다면 per cpu관련 메모리를
+ *   사용할때 사용한다고 한다. per cpu관련 메모리는 compile 시점에서는
+ *   1개만 존재하지만 runtime때 cpu만큼늘어나고, 이걸 고려해서 작성되어 있는데
+ *   compiler는 이를 고려하지 않아 잘못된 code를 생성할수 있다는것이다.
+ *
+ *   그래서 compiler에 아에 이런 주소관련 정보를 감추기 위해 inline asm으로
+ *   작성되었다는 것이다.
+ */
+/*
  * This macro obfuscates arithmetic on a variable address so that gcc
  * shouldn't recognize the original var, and make assumptions about it.
  *

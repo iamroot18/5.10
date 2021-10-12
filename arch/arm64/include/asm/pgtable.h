@@ -362,6 +362,10 @@ static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 #define HPAGE_MASK		(~(HPAGE_SIZE - 1))
 #define HUGETLB_PAGE_ORDER	(HPAGE_SHIFT - PAGE_SHIFT)
 
+/*
+ * IAMROOT, 2021.10.12:
+ * type 처리에 관한 함수들.
+ */
 static inline pte_t pgd_pte(pgd_t pgd)
 {
 	return __pte(pgd_val(pgd));
@@ -472,6 +476,11 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 	return pte_pmd(set_pte_bit(pmd_pte(pmd), __pgprot(PTE_DEVMAP)));
 }
 
+/*
+ * IAMROOT, 2021.10.12:
+ * pmd : pmd entry에 있던 물리주소
+ * 저장되어 있던 물리주소는 flag등이 존재하므로 관련 처리를 해준다.
+ */
 #define __pmd_to_phys(pmd)	__pte_to_phys(pmd_pte(pmd))
 #define __phys_to_pmd_val(phys)	__phys_to_pte_val(phys)
 #define pmd_pfn(pmd)		((__pmd_to_phys(pmd) & PMD_MASK) >> PAGE_SHIFT)
@@ -484,6 +493,11 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 
 #define pud_mkhuge(pud)		(__pud(pud_val(pud) & ~PUD_TABLE_BIT))
 
+/*
+ * IAMROOT, 2021.10.12:
+ * pud : pud entry에 있던 물리주소
+ * 저장되어 있던 물리주소는 flag등이 존재하므로 관련 처리를 해준다.
+ */
 #define __pud_to_phys(pud)	__pte_to_phys(pud_pte(pud))
 #define __phys_to_pud_val(phys)	__phys_to_pte_val(phys)
 #define pud_pfn(pud)		((__pud_to_phys(pud) & PUD_MASK) >> PAGE_SHIFT)
@@ -491,6 +505,11 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 
 #define set_pmd_at(mm, addr, pmdp, pmd)	set_pte_at(mm, addr, (pte_t *)pmdp, pmd_pte(pmd))
 
+/*
+ * IAMROOT, 2021.10.12:
+ * p4d : p4d entry에 있던 물리주소
+ * 저장되어 있던 물리주소는 flag등이 존재하므로 관련 처리를 해준다.
+ */
 #define __p4d_to_phys(p4d)	__pte_to_phys(p4d_pte(p4d))
 #define __phys_to_p4d_val(phys)	__phys_to_pte_val(phys)
 
@@ -586,11 +605,21 @@ static inline void pmd_clear(pmd_t *pmdp)
 	set_pmd(pmdp, __pmd(0));
 }
 
+/*
+ * IAMROOT, 2021.10.12:
+ * - pmd : entry안에 있는 물리주소
+ * - pmd entry가 가리키는 pte 물리주소를 알아온다.
+ */
 static inline phys_addr_t pmd_page_paddr(pmd_t pmd)
 {
 	return __pmd_to_phys(pmd);
 }
 
+/*
+ * IAMROOT, 2021.10.12:
+ * - pmd : entry안에 있는 물리주소
+ * - pmd entry가 가리키는 pte 가상주소를 알아온다.
+ */
 static inline unsigned long pmd_page_vaddr(pmd_t pmd)
 {
 	return (unsigned long)__va(pmd_page_paddr(pmd));
@@ -647,11 +676,21 @@ static inline void pud_clear(pud_t *pudp)
 	set_pud(pudp, __pud(0));
 }
 
+/*
+ * IAMROOT, 2021.10.12:
+ * - pud : entry안에 있는 물리주소
+ * - pud entry가 가리키는 pmd 물리주소를 알아온다.
+ */
 static inline phys_addr_t pud_page_paddr(pud_t pud)
 {
 	return __pud_to_phys(pud);
 }
 
+/*
+ * IAMROOT, 2021.10.12:
+ * - pud : entry안에 있는 물리주소
+ * - pud entry가 가리키는 pmd 가상주소를 알아온다.
+ */
 static inline unsigned long pud_page_vaddr(pud_t pud)
 {
 	return (unsigned long)__va(pud_page_paddr(pud));
@@ -687,6 +726,10 @@ static inline unsigned long pud_page_vaddr(pud_t pud)
 #define pud_ERROR(e)	\
 	pr_err("%s:%d: bad pud %016llx.\n", __FILE__, __LINE__, pud_val(e))
 
+/*
+ * IAMROOT, 2021.10.12:
+ * p4d에 값이 존재하면 false, 아니면 true. 즉 할당되있으면 false return
+ */
 #define p4d_none(p4d)		(!p4d_val(p4d))
 #define p4d_bad(p4d)		(!(p4d_val(p4d) & 2))
 #define p4d_present(p4d)	(p4d_val(p4d))
@@ -763,6 +806,7 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 /*
  * IAMROOT, 2021.10.02:
  * - pud_offset_phys로 구한 pud 물리주소를 가상주소로 변환한다.
+ *   정적으로 할당된 page table(bm_pud 등)을 할당할때만 사용한다.
  */
 /* use ONLY for statically allocated translation tables */
 #define pud_offset_kimg(dir,addr)	((pud_t *)__phys_to_kimg(pud_offset_phys((dir), (addr))))

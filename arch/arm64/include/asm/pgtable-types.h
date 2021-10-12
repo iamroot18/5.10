@@ -18,6 +18,10 @@ typedef u64 p4dval_t;
 typedef u64 pgdval_t;
 
 /*
+ * IAMROOT, 2021.10.12:
+ * type 처리에 관한 정의들.
+ */
+/*
  * These are used to make use of C type-checking..
  */
 typedef struct { pteval_t pte; } pte_t;
