@@ -20,6 +20,10 @@
 
 #if CONFIG_PGTABLE_LEVELS > 2
 
+/*
+ * IAMROOT, 2021.10.13:
+ * - pud entry에 pmdp 물리주소와 속성을 저장한다.
+ */
 static inline void __pud_populate(pud_t *pudp, phys_addr_t pmdp, pudval_t prot)
 {
 	set_pud(pudp, __pud(__phys_to_pud_val(pmdp) | prot));
@@ -60,6 +64,10 @@ static inline void __p4d_populate(p4d_t *p4dp, phys_addr_t pudp, p4dval_t prot)
 extern pgd_t *pgd_alloc(struct mm_struct *mm);
 extern void pgd_free(struct mm_struct *mm, pgd_t *pgdp);
 
+/*
+ * IAMROOT, 2021.10.13:
+ * - pmd entry에 ptep 물리주소와 속성을 저장한다.
+ */
 static inline void __pmd_populate(pmd_t *pmdp, phys_addr_t ptep,
 				  pmdval_t prot)
 {

@@ -65,6 +65,10 @@ extern bool arm64_use_ng_mappings;
 
 #define _PAGE_DEFAULT		(_PROT_DEFAULT | PTE_ATTRINDX(MT_NORMAL))
 
+/*
+ * IAMROOT, 2021.10.14:
+ * KERNEL 에서 가장많이 사용하는 mapping형태. user가 아닌 상태에선 이걸 사용한다.
+ */
 #define PAGE_KERNEL		__pgprot(PROT_NORMAL)
 #define PAGE_KERNEL_TAGGED	__pgprot(PROT_NORMAL_TAGGED)
 #define PAGE_KERNEL_RO		__pgprot((PROT_NORMAL & ~PTE_WRITE) | PTE_RDONLY)

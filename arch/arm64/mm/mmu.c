@@ -442,6 +442,17 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 	addr = virt & PAGE_MASK;
 	end = PAGE_ALIGN(virt + size);
 
+/*
+ * IAMROOT, 2021.10.14:
+ * addr ~ next or end 영역을 pgd 단위로 alloc_init_pud를 수행한다.
+ * addr = 1GB, end = 1025라고 하고 pgd 단위가 512GB라고 한다면
+ *
+ * 1 : 1GB ~ 512 GB
+ * 2 : 512GB ~ 1024 GB
+ * 3 : 1024GB ~ 1025 GB
+ * 
+ * 이렇게 3번이 수행될것이다.
+ */
 	do {
 		next = pgd_addr_end(addr, end);
 		alloc_init_pud(pgdp, addr, next, phys, prot, pgtable_alloc,
@@ -1423,6 +1434,12 @@ void __set_fixmap(enum fixed_addresses idx,
 	}
 }
 
+/*
+ * IAMROOT, 2021.10.14:
+ * 부트로더가 전달해준 fdt의 물리주소(dt_phys)를
+ * fixmap 영역 4MB(실제론 2MB, 나머지 2MB는 align. FIX_FDT_END 위 주석 참고.)
+ * 에 매핑하여 가상주소를 얻어오는 기능을 수행한다.
+ */
 void *__init fixmap_remap_fdt(phys_addr_t dt_phys, int *size, pgprot_t prot)
 {
 	const u64 dt_virt_base = __fix_to_virt(FIX_FDT);
@@ -1436,6 +1453,10 @@ void *__init fixmap_remap_fdt(phys_addr_t dt_phys, int *size, pgprot_t prot)
 	 * fields of the FDT header after mapping the first chunk, double check
 	 * here if that is indeed the case.
 	 */
+/*
+ * IAMROOT, 2021.10.14:
+ * 전달받은 주소가 없거나 MIN_FDT_ALIGN(8) byte align이 되있는질 검사.
+ */
 	BUILD_BUG_ON(MIN_FDT_ALIGN < 8);
 	if (!dt_phys || dt_phys % MIN_FDT_ALIGN)
 		return NULL;

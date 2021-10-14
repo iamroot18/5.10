@@ -76,6 +76,10 @@ enum fixed_addresses {
 	 */
 #define FIX_FDT_SIZE		(MAX_FDT_SIZE + SZ_2M)
 	FIX_FDT_END,
+/*
+ * IAMROOT, 2021.10.14:
+ * FIX_FDT_END인 4MB뒤에 바로 위치하고 있음이 보인다.
+ */
 	FIX_FDT = FIX_FDT_END + FIX_FDT_SIZE / PAGE_SIZE - 1,
 
 	FIX_EARLYCON_MEM_BASE,

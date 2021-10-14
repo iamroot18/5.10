@@ -478,7 +478,7 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 
 /*
  * IAMROOT, 2021.10.12:
- * pmd : pmd entry에 있던 물리주소
+ * pmd : pmd entry에 있던 물리주소. 즉 next page인 pte의 물리주소
  * 저장되어 있던 물리주소는 flag등이 존재하므로 관련 처리를 해준다.
  */
 #define __pmd_to_phys(pmd)	__pte_to_phys(pmd_pte(pmd))
@@ -495,7 +495,7 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 
 /*
  * IAMROOT, 2021.10.12:
- * pud : pud entry에 있던 물리주소
+ * pud : pud entry에 있던 물리주소. 즉 next page인 pmd의 물리주소
  * 저장되어 있던 물리주소는 flag등이 존재하므로 관련 처리를 해준다.
  */
 #define __pud_to_phys(pud)	__pte_to_phys(pud_pte(pud))
@@ -507,7 +507,7 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 
 /*
  * IAMROOT, 2021.10.12:
- * p4d : p4d entry에 있던 물리주소
+ * p4d : p4d entry에 있던 물리주소. 즉 next page인 pud의 물리주소
  * 저장되어 있던 물리주소는 flag등이 존재하므로 관련 처리를 해준다.
  */
 #define __p4d_to_phys(p4d)	__pte_to_phys(p4d_pte(p4d))
@@ -752,7 +752,7 @@ static inline void p4d_clear(p4d_t *p4dp)
 }
 /*
  * IAMROOT, 2021.10.02:
- * - p4d : entry안에 있는 물리주소
+ * - p4d : entry안에 있는 물리주소. 즉 next page인 pud의 물리주소
  * - p4d entry가 가리키는 pud 물리주소를 알아온다.
  */
 static inline phys_addr_t p4d_page_paddr(p4d_t p4d)
@@ -762,7 +762,7 @@ static inline phys_addr_t p4d_page_paddr(p4d_t p4d)
 
 /*
  * IAMROOT, 2021.10.02:
- * - p4d : entry안에 있는 물리주소
+ * - p4d : entry안에 있는 물리주소. 즉 next page인 pud의 물리주소
  * - p4d entry가 가리키는 pud 가상주소를 알아온다.
  */
 static inline unsigned long p4d_page_vaddr(p4d_t p4d)

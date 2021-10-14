@@ -134,6 +134,10 @@
 #define RESERVED_TTBR0_SIZE	(0)
 #endif
 
+/*
+ * IAMROOT, 2021.10.14:
+ * option에 따라 SWAPPER를 PAGE_SIZE(4k)로 쓸지, SECTION_SIZE(2MB)로 쓸지
+ */
 /* Initial memory map size */
 #if ARM64_SWAPPER_USES_SECTION_MAPS
 #define SWAPPER_BLOCK_SHIFT	SECTION_SHIFT

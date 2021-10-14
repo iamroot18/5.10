@@ -56,6 +56,9 @@ static struct resource *standard_resources;
 /*
  * IAMROOT, 2021.09.04:
  * - __initdata : include/linux/init.h
+ *
+ * - fdt : flattened device tree
+ * - 부트로더에서 가져온 값이 head.S __primary_switched에서 저장된다.
  */
 phys_addr_t __fdt_pointer __initdata;
 
@@ -190,6 +193,10 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	if (dt_virt)
 		memblock_reserve(dt_phys, size);
 
+/*
+ * IAMROOT, 2021.10.14:
+ * dt_virt를 검색을 해서 이용을 하겠다는것.
+ */
 	if (!dt_virt || !early_init_dt_scan(dt_virt)) {
 		pr_crit("\n"
 			"Error: invalid device tree blob at physical address %pa (virtual address 0x%p)\n"
