@@ -450,6 +450,10 @@ static void __jump_label_update(struct static_key *key,
 }
 #endif
 
+/*
+ * IAMROOT, 2021.10.16:
+ * - TODO
+ */
 void __init jump_label_init(void)
 {
 	struct jump_entry *iter_start = __start___jump_table;

@@ -331,7 +331,11 @@ static inline unsigned long kaslr_offset(void)
 {
 	return kimage_vaddr - KIMAGE_VADDR;
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - arm64는 일단은 memory min,max를 아래 define과 같이 적당히 잡고 나중에 초기화
+ *   를한다
+ */
 /*
  * Allow all memory at the discovery stage. We will clip it later.
  */
@@ -475,10 +479,15 @@ static inline void *phys_to_virt(phys_addr_t x)
  * 을 OR 해주는것만으로도 va <-> pa 변환이 가능하다.
  *
  * - __pa
- *   va를 pa로 변환. kernel memory 전용.
+ *   lm(linear mapping) va를 pa로 변환. kernel memory 전용.
  *
  * - __va
- *   pa를 va로 변환. kernel memory 전용.
+ *   pa를 lm va로 변환. kernel memory 전용.
+ *
+ * - __pa_symbol
+ *   pa를 kimg va로 변환.
+ *
+ * - __pa, __va의 경우엔 linear mapping이 완료된 이후에 사용이 가능하다.
  */
 #define __pa(x)			__virt_to_phys((unsigned long)(x))
 #define __pa_symbol(x)		__phys_addr_symbol(RELOC_HIDE((unsigned long)(x), 0))

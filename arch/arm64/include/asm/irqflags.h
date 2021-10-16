@@ -71,6 +71,10 @@ static inline void arch_local_irq_disable(void)
 		: "r" ((unsigned long) GIC_PRIO_IRQOFF)
 		: "memory");
 }
+/*
+ * IAMROOT, 2021.10.16:
+ * daif 상태를 가져온다.
+ */
 
 /*
  * Save the current interrupt enable state.
@@ -90,6 +94,10 @@ static inline unsigned long arch_local_save_flags(void)
 	return flags;
 }
 
+/*
+ * IAMROOT, 2021.10.16:
+ * 인자로 받은 daif flag에 PSI_I_BIT(IRQ BIT)를 and하여 disable 상태인지 가져온다.
+ */
 static inline int arch_irqs_disabled_flags(unsigned long flags)
 {
 	int res;

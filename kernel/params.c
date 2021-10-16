@@ -111,7 +111,11 @@ static bool param_check_unsafe(const struct kernel_param *kp)
 
 	return true;
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - early에서 진입한경우 num_params는 전부 0이되어 무조건 handle_unknown을 호출한다.
+ *   (do_early_param)
+ */
 static int parse_one(char *param,
 		     char *val,
 		     const char *doing,
@@ -179,14 +183,26 @@ char *parse_args(const char *doing,
 	while (*args) {
 		int ret;
 		int irq_was_disabled;
-
 		args = next_arg(args, &param, &val);
+/*
+ * IAMROOT, 2021.10.16:
+ * - param이 없거나 --가 있으면 종료한다.
+ */
 		/* Stop at -- */
 		if (!val && strcmp(param, "--") == 0)
 			return err ?: args;
 		irq_was_disabled = irqs_disabled();
+/*
+ * IAMROOT, 2021.10.16:
+ * -parse_early_options parse_args를 불러왔을때 unkown은 do_early_param.
+ */
 		ret = parse_one(param, val, doing, params, num,
 				min_level, max_level, arg, unknown);
+/*
+ * IAMROOT, 2021.10.16:
+ * - parse_one을 통해 실행되는 early param code에서 irq를 키는등의 행위를 했다면
+ *   여기서 warring을 띄워준다.
+ */
 		if (irq_was_disabled && !irqs_disabled())
 			pr_warn("%s: option '%s' enabled irq's!\n",
 				doing, param);

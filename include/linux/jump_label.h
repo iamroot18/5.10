@@ -450,7 +450,21 @@ extern bool ____wrong_branch_error(void);
  *
  * See jump_label_type() / jump_label_init_type().
  */
-
+/*
+ * IAMROOT, 2021.10.16:
+ * default
+ * - key   | like?    | code | if(x)
+ *   true  | likely   | nop  | likely(true)
+ *   true  | unlikely | br   | unlikely(true)
+ *   false | likely   | br   | likely(false)
+ *   false | unlikely | nop  | unliely(false)
+ *
+ * change
+ *   true  | likely   | br  | likely(false)
+ *   true  | unlikely | nop | unlikely(false)
+ *   false | likely   | nop | likely(true)
+ *   false | unlikely | br  | unliely(true)
+ */
 #define static_branch_likely(x)							\
 ({										\
 	bool branch;								\

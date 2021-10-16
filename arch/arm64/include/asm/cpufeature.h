@@ -698,7 +698,10 @@ static inline bool system_supports_generic_auth(void)
 	return IS_ENABLED(CONFIG_ARM64_PTR_AUTH) &&
 		cpus_have_const_cap(ARM64_HAS_GENERIC_AUTH);
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - GIC NMI관련 함수
+ */
 static __always_inline bool system_uses_irq_prio_masking(void)
 {
 	return IS_ENABLED(CONFIG_ARM64_PSEUDO_NMI) &&

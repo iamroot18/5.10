@@ -227,6 +227,10 @@ static inline unsigned long get_trans_granule(void)
  *	on top of these routines, since that is our interface to the mmu_gather
  *	API as used by munmap() and friends.
  */
+/*
+ * IAMROOT, 2021.10.16:
+ * - 현재 cpu만(local) 모든 주소에 대한 tlb cache를 비운다는것.
+ */
 static inline void local_flush_tlb_all(void)
 {
 	dsb(nshst);
@@ -234,7 +238,10 @@ static inline void local_flush_tlb_all(void)
 	dsb(nsh);
 	isb();
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - 전체 cpu에 대해서 모든 주소에 대하여 tlb cache를 비운다는것.
+ */
 static inline void flush_tlb_all(void)
 {
 	dsb(ishst);

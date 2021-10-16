@@ -107,7 +107,12 @@ static struct memblock_region memblock_reserved_init_regions[INIT_MEMBLOCK_RESER
 #ifdef CONFIG_HAVE_MEMBLOCK_PHYS_MAP
 static struct memblock_region memblock_physmem_init_regions[INIT_PHYSMEM_REGIONS];
 #endif
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - .meminit.data section에 위치한다.
+ *
+ * - cnt가 1인데, 없을때도 1이고 1개일때도 1이다. 0을 사용하면 안됨.
+ */
 struct memblock memblock __initdata_memblock = {
 	.memory.regions		= memblock_memory_init_regions,
 	.memory.cnt		= 1,	/* empty dummy entry */
@@ -139,7 +144,11 @@ struct memblock_type physmem = {
  * pointer will be reset to NULL at memblock_discard()
  */
 static __refdata struct memblock_type *memblock_memory = &memblock.memory;
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - memblock_type->cnt는 무조건 1이상이기 때문에 최소한 for문은 한번은 진입할것이다.
+ *   memblock_type->region[0]부터 끝까지 iteration을 수행한다.
+ */
 #define for_each_memblock_type(i, memblock_type, rgn)			\
 	for (i = 0, rgn = &memblock_type->regions[0];			\
 	     i < memblock_type->cnt;					\
@@ -599,6 +608,12 @@ static void __init_memblock memblock_insert_region(struct memblock_type *type,
  * Return:
  * 0 on success, -errno on failure.
  */
+
+/*
+ * IAMROOT, 2021.10.16:
+ * - nid같은경우엔 0, 1, 2같은 node id가 들어오는데
+ *   MAX_NUMNODES를 사용하겟다는것은 어떤 노드든 (any node)상관없다는 의미와 같다.
+ */
 static int __init_memblock memblock_add_range(struct memblock_type *type,
 				phys_addr_t base, phys_addr_t size,
 				int nid, enum memblock_flags flags)
@@ -611,7 +626,12 @@ static int __init_memblock memblock_add_range(struct memblock_type *type,
 
 	if (!size)
 		return 0;
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - memblock의 지정한 region(memory, reserve) 비어있는 상태.
+ *   merge도 할필요없고 cnt를 최소 1로 설정해야되기 때문에 이런 특수 처리를 한다.
+ *   등록만하고 끝나는 상황.
+ */
 	/* special case for empty array */
 	if (type->regions[0].size == 0) {
 		WARN_ON(type->cnt != 1 || type->total_size);
@@ -634,7 +654,11 @@ repeat:
 	for_each_memblock_type(idx, type, rgn) {
 		phys_addr_t rbase = rgn->base;
 		phys_addr_t rend = rbase + rgn->size;
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - region base가 요청된 end 보다 크다면 종료
+ * - region end가 요청된 base 보다 작다면 다음 region 탐색
+ */
 		if (rbase >= end)
 			break;
 		if (rend <= base)
@@ -643,6 +667,18 @@ repeat:
 		 * @rgn overlaps.  If it separates the lower part of new
 		 * area, insert that portion.
 		 */
+/*
+ * IAMROOT, 2021.10.16:
+ * - region base가 base 보다 크다면 그 차이 만큼만 현재 region에 insert 한다
+ *
+ * 1) rend <= end 인 상황
+ *  rend +--------+
+ *       |        | +-----+ end
+ *       | region | |     |
+ * rbase +--------+ | new |
+ *                  |     |
+ *                  +-----+ base
+ */
 		if (rbase > base) {
 #ifdef CONFIG_NEED_MULTIPLE_NODES
 			WARN_ON(nid != memblock_get_region_node(rgn));
@@ -654,6 +690,23 @@ repeat:
 						       rbase - base, nid,
 						       flags);
 		}
+/*
+ * IAMROOT, 2021.10.16:
+ * 
+ * rend 보다 end가 더 작거나 같다면 추가할 block 없는것이고,
+ *
+ * 하지만 rend < end 상황이라면
+ *                  +-----+ end
+ *  rend +--------+ |     |
+ *       |        | |     | 
+ *       | region | |     |
+ * rbase +--------+ | new |
+ *                  |     |
+ *                  +-----+ base
+ *
+ * 위와 같은 상황에서 rend ~ end를 마저 할당해야되므로
+ * base는 rend로 해서 다음 iterate때 할당할것이다.
+ */
 		/* area below @rend is dealt with, forget about it */
 		base = min(rend, end);
 	}
@@ -713,6 +766,10 @@ int __init_memblock memblock_add_node(phys_addr_t base, phys_addr_t size,
  *
  * Return:
  * 0 on success, -errno on failure.
+ */
+/*
+ * IAMROOT, 2021.10.16:
+ * - memory의 물리시작주소와 size를 memblock.memory에 추가한다.
  */
 int __init_memblock memblock_add(phys_addr_t base, phys_addr_t size)
 {

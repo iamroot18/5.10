@@ -78,6 +78,11 @@ struct memblock_type {
  * @memory: usable memory regions
  * @reserved: reserved memory regions
  */
+/*
+ * IAMROOT, 2021.10.16:
+ * - bottom_up : 빈공간을 할당할때 현재 공간의 위로 할당할지 아래로 할당할지에 대한
+ *   flag. 아키텍처마자 용법이 다르다.
+ */
 struct memblock {
 	bool bottom_up;  /* is bottom up direction? */
 	phys_addr_t current_limit;

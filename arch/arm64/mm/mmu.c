@@ -51,7 +51,17 @@ EXPORT_SYMBOL(vabits_actual);
  */
 u64 kimage_voffset __ro_after_init;
 EXPORT_SYMBOL(kimage_voffset);
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - 처음에 user memory를 할당할때 이 page를 가리키게 한다.
+ *   한개 페이지가 0만이 존재한다.
+ *
+ * - read fault가 들어오면 이 페이지를 할당한다.
+ *
+ * - write fault가 들어오면 이 페이지가 아닌 실제 페이지를 할당해 준다.
+ *
+ * - ttbr0를 비울때 빈 page table 용도로도 사용한다.
+ */
 /*
  * Empty_zero_page is a special page that is used for zero-initialized data
  * and COW.

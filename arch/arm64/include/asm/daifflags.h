@@ -63,7 +63,10 @@ static inline unsigned long local_daif_save(void)
 
 	return flags;
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - flags값으로 설정.
+ */
 static inline void local_daif_restore(unsigned long flags)
 {
 	bool irq_disabled = flags & PSR_I_BIT;

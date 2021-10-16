@@ -34,7 +34,10 @@ static inline void contextidr_thread_switch(struct task_struct *next)
 	write_sysreg(task_pid_nr(next), contextidr_el1);
 	isb();
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - ttbr0를 비우게 하기 위해 0 page로 할당하는 역할
+ */
 /*
  * Set TTBR0 to empty_zero_page. No translations will be possible via TTBR0.
  */
@@ -97,6 +100,11 @@ static inline void __cpu_set_tcr_t0sz(unsigned long t0sz)
 	isb();
 }
 
+/*
+ * IAMROOT, 2021.10.16:
+ * - id mdapping을 할때 특수한 경우에 대해서 vabits_actual을 좀 다르게 설정해야되는
+ *   경우가 있었는데 여기서 이제 vabits_actual로 완전히 설정하는것.
+ */
 #define cpu_set_default_tcr_t0sz()	__cpu_set_tcr_t0sz(TCR_T0SZ(vabits_actual))
 #define cpu_set_idmap_tcr_t0sz()	__cpu_set_tcr_t0sz(idmap_t0sz)
 
@@ -117,9 +125,17 @@ static inline void cpu_uninstall_idmap(void)
 	struct mm_struct *mm = current->active_mm;
 
 	cpu_set_reserved_ttbr0();
+/*
+ * IAMROOT, 2021.10.16:
+ * - page table을 위에서 비웠기때문에 tlb cache를 flush해주는것.
+ */
 	local_flush_tlb_all();
 	cpu_set_default_tcr_t0sz();
 
+/*
+ * IAMROOT, 2021.10.16:
+ * - TODO
+ */
 	if (mm != &init_mm && !system_uses_ttbr0_pan())
 		cpu_switch_mm(mm->pgd, mm);
 }

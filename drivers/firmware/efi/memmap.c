@@ -102,6 +102,11 @@ int __init efi_memmap_alloc(unsigned int num_entries,
  *
  * Returns zero on success, a negative error code on failure.
  */
+
+/*
+ * IAMROOT, 2021.10.16:
+ * - uefi가 준 정보로 FIXMAP의 BTMAP에 early memory mapping을 한다.
+ */
 static int __init __efi_memmap_init(struct efi_memory_map_data *data)
 {
 	struct efi_memory_map map;
@@ -146,6 +151,10 @@ static int __init __efi_memmap_init(struct efi_memory_map_data *data)
  *
  * Use early_memremap() to map the passed in EFI memory map and assign
  * it to efi.memmap.
+ */
+/*
+ * IAMROOT, 2021.10.16:
+ * - FIXMAP의 BTMAP에 memory mapping을 하고 efi 변수를 초기화한다.
  */
 int __init efi_memmap_init_early(struct efi_memory_map_data *data)
 {

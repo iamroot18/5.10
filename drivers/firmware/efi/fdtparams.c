@@ -79,6 +79,10 @@ static int __init efi_get_fdt_prop(const void *fdt, int node, const char *pname,
 	return 0;
 }
 
+/*
+ * IAMROOT, 2021.10.16:
+ * - efi 관련 정보를 dt 와 매칭하여 가져오는것.
+ */
 u64 __init efi_get_fdt_params(struct efi_memory_map_data *mm)
 {
 	const void *fdt = initial_boot_params;

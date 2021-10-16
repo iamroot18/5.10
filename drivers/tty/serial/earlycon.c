@@ -220,7 +220,12 @@ again:
  * been initialized.
  */
 bool earlycon_acpi_spcr_enable __initdata;
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - ex) console=ttyS0,115200n8
+ *   buf에는 그전에 이미 파싱이 되어 value(ttyS0,115200n8)부분이 이미 들어가
+ *   있는 상황이라고 생각하면된다.
+*/
 /* early_param wrapper for setup_earlycon() */
 static int __init param_setup_earlycon(char *buf)
 {
@@ -228,6 +233,12 @@ static int __init param_setup_earlycon(char *buf)
 
 	/* Just 'earlycon' is a valid param for devicetree and ACPI SPCR. */
 	if (!buf || !buf[0]) {
+/*
+ * IAMROOT, 2021.10.16:
+ * console의 value가 없는경우 진입한다.
+ * - pc나 server같은 장비는 cmd line같은걸 쓰지않고 acpi를 통해 firmware에서 설정한
+ *   값들을 사용한다. 거기에 대한 config enasble 확인
+ */
 		if (IS_ENABLED(CONFIG_ACPI_SPCR_TABLE)) {
 			earlycon_acpi_spcr_enable = true;
 			return 0;
@@ -244,7 +255,10 @@ static int __init param_setup_earlycon(char *buf)
 early_param("earlycon", param_setup_earlycon);
 
 #ifdef CONFIG_OF_EARLY_FLATTREE
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - ex) node = dtb에서의 serial0 offset, options = 115200n8, match는 early_conde
+ */
 int __init of_setup_earlycon(const struct earlycon_id *match,
 			     unsigned long node,
 			     const char *options)
@@ -300,7 +314,10 @@ int __init of_setup_earlycon(const struct earlycon_id *match,
 	val = of_get_flat_dt_prop(node, "clock-frequency", NULL);
 	if (val)
 		port->uartclk = be32_to_cpu(*val);
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - ex) option=115200n8
+ */
 	if (options) {
 		early_console_dev.baud = simple_strtoul(options, NULL, 0);
 		strlcpy(early_console_dev.options, options,

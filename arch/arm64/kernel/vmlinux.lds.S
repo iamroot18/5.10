@@ -197,6 +197,10 @@ SECTIONS
 
 	.init.data : {
 		INIT_DATA
+/*
+ * IAMROOT, 2021.10.16:
+ * - .init.section에 사용하는 구조체 struct obs_kernel_param 가 16byte를 가지고있다.
+ */
 		INIT_SETUP(16)
 		INIT_CALLS
 		CON_INITCALL

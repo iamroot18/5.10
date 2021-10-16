@@ -161,7 +161,10 @@ static __init int is_usable_memory(efi_memory_desc_t *md)
 	}
 	return false;
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - efi에서 전달해준 memory 영역을 reserve 한다.
+ */
 static __init void reserve_regions(void)
 {
 	efi_memory_desc_t *md;
@@ -205,7 +208,10 @@ static __init void reserve_regions(void)
 		}
 	}
 }
-
+/*
+ * IAMROOT, 2021.10.16:
+ * - efi에서 미리 초기화가 필요한 것들을 작업한다.
+ */
 void __init efi_init(void)
 {
 	struct efi_memory_map_data data;
