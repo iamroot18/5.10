@@ -218,7 +218,7 @@ char *next_arg(char *args, char **param, char **val)
 	}
 
 	for (i = 0; args[i]; i++) {
-		if (isspace(args[i]) && !in_qote)
+		if (isspace(args[i]) && !in_quote)
 			break;
 		if (equals == 0) {
 			if (args[i] == '=')
