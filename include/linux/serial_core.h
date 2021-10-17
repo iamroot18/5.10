@@ -379,7 +379,7 @@ extern const struct earlycon_id *__earlycon_table_end[];
 	static const struct earlycon_id EARLYCON_USED_OR_UNUSED		\
 		__section("__earlycon_table")				\
 		* const __PASTE(__p, unique_id) = &unique_id
-*
+
 /*
  * IAMROOT, 2021.10.16:
  * - __earlycon_table 의 값들을 정의 하는 macro. 옛날부터 사용했던 것.
