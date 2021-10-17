@@ -110,4 +110,8 @@
 
 ### 20주차
 - 2021.10.09, Zoom 온라인(18명 참석)
--  setup_machine_fdt() -> early_init_dt_scan_nodes() 진행중
+- setup_machine_fdt() -> early_init_dt_scan_nodes() 진행중
+
+### 21주차
+- 2021.10.16, Zoom 온라인(21명 참석)
+- memblock_add() -> memblock_add_range() 진행중
