@@ -439,10 +439,8 @@ extern phys_addr_t __phys_addr_symbol(unsigned long x);
 #endif /* CONFIG_DEBUG_VIRTUAL */
 /*
  * IAMROOT, 2021.10.02:
- * - __phys_to_virt
- *   물리주소를 리니어매핑된 가상주소로 변환.
- * - __phys_to_kimg
- *   물리주소를 image로 매핑된 가상주소로 변환.
+ * - __phys_to_virt: 물리주소를 리니어매핑된 가상주소로 변환.
+ * - __phys_to_kimg: 물리주소를 image로 매핑된 가상주소로 변환.
  */
 #define __phys_to_virt(x)	((unsigned long)((x) - PHYS_OFFSET) | PAGE_OFFSET)
 #define __phys_to_kimg(x)	((unsigned long)((x) + kimage_voffset))
@@ -485,7 +483,7 @@ static inline void *phys_to_virt(phys_addr_t x)
  *   pa를 lm va로 변환. kernel memory 전용.
  *
  * - __pa_symbol
- *   pa를 kimg va로 변환.
+ *   @x를 입력받아 symbol의 phys addr을 구함.
  *
  * - __pa, __va의 경우엔 linear mapping이 완료된 이후에 사용이 가능하다.
  */

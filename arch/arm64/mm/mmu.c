@@ -1370,6 +1370,13 @@ void __init early_fixmap_init(void)
  *
  * p4d가 매핑이 안되있으면 bm_pud로 매핑을 한다.
  * 그리고 fixmap_pud를 통해 pud entry 주소를 구한다.
+ *
+ * - as c code
+ *   if (p4d == 0)
+ *      *p4dp = __pa(bm_pud);
+ *   pudp = __va(*p4dp + pud_index(addr) * 8);
+ *
+ *   va(bm_pud[index])를 구해온다.
  */
 		if (p4d_none(p4d))
 			__p4d_populate(p4dp, __pa_symbol(bm_pud), PUD_TYPE_TABLE);
@@ -1378,12 +1385,28 @@ void __init early_fixmap_init(void)
 /*
  * IAMROOT, 2021.10.02:
  * - pud가 매핑이 안되있다면 위 bm_pud처럼 bm_pmd도 매핑을 해준다.
+ *
+ * - as c code
+ *   if (*pudp == 0)
+ *      *pudp = __pa(bm_pmd);
+ *
+ *   위에서 구해온 va(bm_pud[index])에 bm_pmd의 물리주소를 매핑한다.
  */
 	if (pud_none(READ_ONCE(*pudp)))
 		__pud_populate(pudp, __pa_symbol(bm_pmd), PMD_TYPE_TABLE);
 /*
  * IAMROOT, 2021.10.02:
  * - pmd entry를 구해와서 무조건 bm_pte로 매핑을 해준다.
+ *
+ * - as c code
+ *   pmdp = __va(*pudp + pmd_index(addr) * 8);
+ *   *pmdp = __pa(bm_pte);
+ *
+ *   @addr를 이용해 pa(bm_pmd) -> va(bm_pmd[index])로 변환하고
+ *   bm_pmd[index]에 pa(bm_pte)를 저장한다.
+ *
+ *   pte는 최종 4k entries 가리키므로 fixmap에서 사용할 table을
+ *   더이상 매핑하지 않는다.
  */
 	pmdp = fixmap_pmd(addr);
 	__pmd_populate(pmdp, __pa_symbol(bm_pte), PMD_TYPE_TABLE);
