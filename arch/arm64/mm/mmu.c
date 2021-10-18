@@ -1411,6 +1411,13 @@ void __init early_fixmap_init(void)
 	pmdp = fixmap_pmd(addr);
 	__pmd_populate(pmdp, __pa_symbol(bm_pte), PMD_TYPE_TABLE);
 
+/*
+ * IAMROOT, 2021.10.18:
+ * - @normal_case에서는 다음과 같은 메모리 공간을 커버한다.
+ *   pg_dir -> bm_pud (1 bucket) -> bm_pmd (1 bucket) -> bm_pte (512 buckets)
+ *   512 * 4k = 2MB
+ */
+
 	/*
 	 * The boot-ioremap range spans multiple pmds, for which
 	 * we are not prepared:
