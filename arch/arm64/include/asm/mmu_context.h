@@ -36,7 +36,7 @@ static inline void contextidr_thread_switch(struct task_struct *next)
 }
 /*
  * IAMROOT, 2021.10.16:
- * - ttbr0를 비우게 하기 위해 0 page로 할당하는 역할
+ * - ttbr0를 비우게 하기 위해 zero-page로 할당하는 역할
  */
 /*
  * Set TTBR0 to empty_zero_page. No translations will be possible via TTBR0.

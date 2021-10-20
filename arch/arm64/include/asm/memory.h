@@ -483,9 +483,11 @@ static inline void *phys_to_virt(phys_addr_t x)
  *   pa를 lm va로 변환. kernel memory 전용.
  *
  * - __pa_symbol
- *   @x를 입력받아 symbol의 phys addr을 구함.
+ *   symbol의 phys addr을 구함.
+ *   __phys_addr_symbol -> __kimg_to_phys을 호출하므로 lm 이전에
+ *   사용 가능.
  *
- * - __pa, __va의 경우엔 linear mapping이 완료된 이후에 사용이 가능하다.
+ * - __pa / __va는 lm 설정이 완료된 후에 사용 가능.
  */
 #define __pa(x)			__virt_to_phys((unsigned long)(x))
 #define __pa_symbol(x)		__phys_addr_symbol(RELOC_HIDE((unsigned long)(x), 0))
