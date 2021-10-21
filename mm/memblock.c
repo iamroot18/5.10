@@ -611,8 +611,9 @@ static void __init_memblock memblock_insert_region(struct memblock_type *type,
 
 /*
  * IAMROOT, 2021.10.16:
- * - nid같은경우엔 0, 1, 2같은 node id가 들어오는데
- *   MAX_NUMNODES를 사용하겟다는것은 어떤 노드든 (any node)상관없다는 의미와 같다.
+ * - @nid: 0, 1, 2, ... 같은 node id가 들어오는데 MAX_NUMNODES를
+ *         사용하겟다는것은 어떤 노드든 (any node)상관없다는 의미와 같다.
+ *         Non-NUMA 시스템에서 node id는 0으로 처리된다.
  */
 static int __init_memblock memblock_add_range(struct memblock_type *type,
 				phys_addr_t base, phys_addr_t size,
@@ -628,9 +629,12 @@ static int __init_memblock memblock_add_range(struct memblock_type *type,
 		return 0;
 /*
  * IAMROOT, 2021.10.16:
- * - memblock의 지정한 region(memory, reserve) 비어있는 상태.
- *   merge도 할필요없고 cnt를 최소 1로 설정해야되기 때문에 이런 특수 처리를 한다.
- *   등록만하고 끝나는 상황.
+ * - memblock region(memory, reserve)이 비어있는 상태일때.
+ *   이 경우 특수케이스로 처리하는데 해당 region에 아무것도
+ *   없으므로 단순하게 추가하고 끝낸다.
+ *
+ * - 불 필요한 코드(cnt 보정, memory 공간 중복시 merge 등) 수행없이
+ *   추가 후 바로 리턴 (fast).
  */
 	/* special case for empty array */
 	if (type->regions[0].size == 0) {
