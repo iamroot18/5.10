@@ -633,8 +633,8 @@ static int __init_memblock memblock_add_range(struct memblock_type *type,
  *   이 경우 특수케이스로 처리하는데 해당 region에 아무것도
  *   없으므로 단순하게 추가하고 끝낸다.
  *
- * - 불 필요한 코드(cnt 보정, memory 공간 중복시 merge 등) 수행없이
- *   추가 후 바로 리턴 (fast).
+ * - 오버헤드(cnt 보정, memory 공간 중복시 merge 등) 없이 추가 후
+ *   바로 리턴 (fast).
  */
 	/* special case for empty array */
 	if (type->regions[0].size == 0) {
