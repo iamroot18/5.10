@@ -11,7 +11,11 @@
 #include <uapi/linux/mount.h>
 
 #include "do_mounts.h"
-
+/*
+ * IAMROOT, 2021.10.23:
+ * - arm64_memblock_init에서 memstart_addr가 초기화가 되고 kernel 영역이
+ *   reserve 된후 초기화가 된다.
+ */
 unsigned long initrd_start, initrd_end;
 int initrd_below_start_ok;
 unsigned int real_root_dev;	/* do_proc_dointvec cannot handle kdev_t */

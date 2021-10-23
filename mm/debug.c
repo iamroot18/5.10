@@ -315,6 +315,11 @@ out:
 }
 __setup("vm_debug", setup_vm_debug);
 
+/*
+ * IAMROOT, 2021.10.23:
+ * - memory를 쓰는 상태와 안쓰는 상태를 구별하기 위함.
+ *   dump_page 등에서 해당 flags를 읽어 확인한다.
+ */
 void page_init_poison(struct page *page, size_t size)
 {
 	if (page_init_poisoning)

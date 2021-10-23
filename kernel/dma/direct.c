@@ -20,6 +20,10 @@
  * it for entirely different regions. In that case the arch code needs to
  * override the variable below for dma-direct to work properly.
  */
+/*
+ * IAMROOT, 2021.10.23:
+ * - arm64_memblock_init에서 ARM64_ZONE_DMA_BITS 값으로 초기화된다.
+ */
 unsigned int zone_dma_bits __ro_after_init = 24;
 
 static inline dma_addr_t phys_to_dma_direct(struct device *dev,

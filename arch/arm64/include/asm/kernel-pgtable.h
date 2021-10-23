@@ -203,6 +203,11 @@
  * has a direct correspondence, and needs to appear sufficiently aligned
  * in the virtual address space.
  */
+/*
+ * IAMROOT, 2021.10.23:
+ * - arm64 : 1GB로 고정되있음.
+ * - arm32 : kernel을 만들때 변경 가능.
+ */
 #if defined(CONFIG_SPARSEMEM_VMEMMAP) && ARM64_MEMSTART_SHIFT < SECTION_SIZE_BITS
 #define ARM64_MEMSTART_ALIGN	(1UL << SECTION_SIZE_BITS)
 #else

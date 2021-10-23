@@ -32,6 +32,10 @@ extern unsigned long long max_possible_pfn;
  * @MEMBLOCK_MIRROR: mirrored region
  * @MEMBLOCK_NOMAP: don't add to kernel direct mapping
  */
+/*
+ * IAMROOT, 2021.10.23:
+ * - NOMAP으로 요청한것들은 paging_init에서는 mapping을 안한다.
+ */
 enum memblock_flags {
 	MEMBLOCK_NONE		= 0x0,	/* No special request */
 	MEMBLOCK_HOTPLUG	= 0x1,	/* hotpluggable region */
@@ -194,6 +198,10 @@ static inline void __next_physmem_range(u64 *idx, struct memblock_type *type,
  * @p_start: ptr to phys_addr_t for start address of the range, can be %NULL
  * @p_end: ptr to phys_addr_t for end address of the range, can be %NULL
  * @p_nid: ptr to int for nid of the range, can be %NULL
+ */
+/*
+ * IAMROOT, 2021.10.23:
+ * - 높은 주소에서 시작해서 낮은 주소로 진행한다.
  */
 #define __for_each_mem_range_rev(i, type_a, type_b, nid, flags,		\
 				 p_start, p_end, p_nid)			\
@@ -375,6 +383,11 @@ static inline int memblock_get_region_node(const struct memblock_region *r)
 
 /* Flags for memblock allocation APIs */
 #define MEMBLOCK_ALLOC_ANYWHERE	(~(phys_addr_t)0)
+/*
+ * IAMROOT, 2021.10.23:
+ * - MEMBLOCK_ALLOC_ACCESSIBLE : memblock의 current_limit을 적용하겠다는것.
+ * - MEMBLOCK_ALLOC_KASAN : kasan_init에서 호출시 skip하라는것.
+ */
 #define MEMBLOCK_ALLOC_ACCESSIBLE	0
 #define MEMBLOCK_ALLOC_KASAN		1
 
@@ -423,6 +436,10 @@ static inline void * __init memblock_alloc_raw(phys_addr_t size,
 					  NUMA_NO_NODE);
 }
 
+/*
+ * IAMROOT, 2021.10.23:
+ * - limit 를 min_addr로 주는것이 확인된다.
+ */
 static inline void * __init memblock_alloc_from(phys_addr_t size,
 						phys_addr_t align,
 						phys_addr_t min_addr)
@@ -430,7 +447,11 @@ static inline void * __init memblock_alloc_from(phys_addr_t size,
 	return memblock_alloc_try_nid(size, align, min_addr,
 				      MEMBLOCK_ALLOC_ACCESSIBLE, NUMA_NO_NODE);
 }
-
+/*
+ * IAMROOT, 2021.10.23:
+ * - limit을 MEMBLOCK_LOW_LIMIT로 주는것이 확인된다.
+ *   ARCH_LOW_ADDRESS_LIMIT도 사용하는게 보인다.
+ */
 static inline void * __init memblock_alloc_low(phys_addr_t size,
 					       phys_addr_t align)
 {

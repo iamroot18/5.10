@@ -135,6 +135,8 @@
 #define _PAGE_OFFSET(va)	(-(UL(1) << (va)))
 /*
  * IAMROOT, 2021.09.04:
+ * compile time때 정해지는 kernel 공간의 start address
+ * 
  * - VA 48Bit 4kb page 일때 : 0xffff_0000_0000_0000
  */
 #define PAGE_OFFSET		(_PAGE_OFFSET(VA_BITS))
@@ -318,6 +320,10 @@ extern u64			vabits_actual;
 #define PAGE_END		(_PAGE_END(vabits_actual))
 
 extern s64			memstart_addr;
+/*
+ * IAMROOT, 2021.10.23:
+ * - 
+ */
 /* PHYS_OFFSET - the physical address of the start of memory. */
 #define PHYS_OFFSET		({ VM_BUG_ON(memstart_addr & 1); memstart_addr; })
 

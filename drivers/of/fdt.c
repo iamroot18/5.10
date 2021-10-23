@@ -545,6 +545,10 @@ static int __init __reserved_mem_check_root(unsigned long node)
 /**
  * fdt_scan_reserved_mem() - scan a single FDT node for reserved memory
  */
+/*
+ * IAMROOT, 2021.10.23:
+ * dt에서 지정되있는 reserved memory node 영역을 reserve 시킨다.
+ */
 static int __init __fdt_scan_reserved_mem(unsigned long node, const char *uname,
 					  int depth, void *data)
 {
@@ -585,6 +589,13 @@ static int __init __fdt_scan_reserved_mem(unsigned long node, const char *uname,
  * This function grabs memory from early allocator for device exclusive use
  * defined in device tree structures. It should be called by arch specific code
  * once the early allocator (i.e. memblock) has been fully activated.
+ */
+/*
+ * IAMROOT, 2021.10.23:
+ *
+ * dt에서 요청한 reserve 영역을 reserve 시킨다.
+ * ex) /memreserve/ 0x81000000 0x00200000;
+ * 그외에 생략
  */
 void __init early_init_fdt_scan_reserved_mem(void)
 {

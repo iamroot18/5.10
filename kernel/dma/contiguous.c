@@ -172,7 +172,11 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 	bool fixed = false;
 
 	pr_debug("%s(limit %08lx)\n", __func__, (unsigned long)limit);
-
+/*
+ * IAMROOT, 2021.10.23:
+ * - arm64에서는 무조건 dt를 사용한다. dt등에 존재하면 그것을 사용하지만,
+ *   지정이 안되면 CONFIG에 따라서 selected_size를 지정한다.
+ */
 	if (size_cmdline != -1) {
 		selected_size = size_cmdline;
 		selected_base = base_cmdline;
@@ -223,6 +227,10 @@ dma_contiguous_early_fixup(phys_addr_t base, unsigned long size)
  *
  * If @fixed is true, reserve contiguous area at exactly @base.  If false,
  * reserve in range from @base to @limit.
+ */
+/*
+ * IAMROOT, 2021.10.23:
+ * - cma memory allocator. TODO
  */
 int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t base,
 				       phys_addr_t limit, struct cma **res_cma,
