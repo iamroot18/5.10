@@ -353,6 +353,9 @@ void __init arm64_memblock_init(void)
 /*
  * IAMROOT, 2021.10.23:
  * - 물리주소 범위를 벗어나는 영역을 지운다
+ *
+ * 표는 적당히 다음과 같은 순서대로 address가 설정되있다고 했을때
+ * memblock 상태를 표시한다. (fdt_enforce_memory_region 이후만 고려)
  */
 	/* Remove memory above our supported physical address size */
 	memblock_remove(1ULL << PHYS_MASK_SHIFT, ULLONG_MAX);
@@ -371,6 +374,57 @@ void __init arm64_memblock_init(void)
 /*
  * IAMROOT, 2021.10.23:
  * - 리니어 매핑 영역보다 큰 물리메모리 영역을 제거한다.
+ * 
+ * 최초에 dt에서 memstart ~ memblock_end_of_DRAM() 까지 memory add를 한
+ * 상태였을것이다.
+ *
+ * 그런데 만약 memstart_addr + linear_region_size 가 memblock_end_of_DRAM 작다면,
+ * 즉 128TB 이상이라면 memblock_addr의 주소를 올려 128 TB의 크기로 맞춰버린다.
+ *
+ * 그렇게되면 old_memblock_addr ~ memblock_addr 부분이 아직 memblock add 로
+ * 남았을것이므로 그 부분을 지우기 위해 0 ~ memblock_addr까지 지운다.
+ *
+ * memstart_addr 수정전)
+ * address                  | memblock
+ * -------------------------+--------
+ * ..                       | remove
+ * memblock_end_of_DRAM()   | remove
+ * ..                       | add
+ * (linear_region_size      | add
+ * 보다 큰 간격)            |
+ * ...                      | add
+ * memstart_addr            | add
+ * ...                      | remove
+ * -------------------------+--------
+ *
+ * memstart_addr 수정후)
+ * address                  | memblock
+ * -------------------------+--------
+ * ..                       | remove
+ * memblock_end_of_DRAM()   | remove
+ * ..                       | add
+ * linear_region_size       | add
+ * ...                      | add
+ * memstart_addr            | add 
+ * ...                      | add <-- memstart_addr이 위로 올라갔으므로
+ * old_memstart_addr        | add <-- 이 부분들이 remove되야된다.
+ * ...                      | remove
+ * -------------------------+--------
+ *
+ * memblock_remove(0, memstart_addr) 후)
+ *
+ * address                  | memblock
+ * -------------------------+--------
+ * ..                       | remove
+ * memblock_end_of_DRAM()   | remove
+ * ..                       | add
+ * linear_region_size       | add
+ * ...                      | add
+ * memstart_addr            | add 
+ * ...                      | *remove
+ * old_memstart_addr        | *remove
+ * ...                      | remove
+ * -------------------------+--------
  */
 	memblock_remove(max_t(u64, memstart_addr + linear_region_size,
 			__pa_symbol(_end)), ULLONG_MAX);
@@ -414,6 +468,7 @@ void __init arm64_memblock_init(void)
 /*
  * IAMROOT, 2021.10.23:
  * - 외부에서 memory_limis값이 지정이되면 해당값을 기준으로 초기화가 이루어진다.
+ *   memory_limit ~ PHYS_ADDR_MAX를 전부 remove 한다.
  *
  * - kernel이 dram의 위쪽에 load가 될수있는데 이 경우
  *   limit 영역이 kernel image 영역이 제거될수있으므로 다시 add를 해준다.
@@ -517,7 +572,7 @@ void __init arm64_memblock_init(void)
 /*
  * IAMROOT, 2021.10.23:
  * - va를 사용시 범위를 벗어나면 안되서 -1을 해줬다가 결과 가상주소에 + 1을 한다.
- *   */
+ */
 	high_memory = __va(memblock_end_of_DRAM() - 1) + 1;
 
 	dma_contiguous_reserve(arm64_dma32_phys_limit);

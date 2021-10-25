@@ -320,10 +320,6 @@ extern u64			vabits_actual;
 #define PAGE_END		(_PAGE_END(vabits_actual))
 
 extern s64			memstart_addr;
-/*
- * IAMROOT, 2021.10.23:
- * - 
- */
 /* PHYS_OFFSET - the physical address of the start of memory. */
 #define PHYS_OFFSET		({ VM_BUG_ON(memstart_addr & 1); memstart_addr; })
 

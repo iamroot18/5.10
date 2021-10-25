@@ -2193,6 +2193,11 @@ phys_addr_t __init_memblock memblock_reserved_size(void)
 }
 
 /* lowest address */
+/*
+ * IAMROOT, 2021.10.25:
+ * - setup_machine_fdt -> early_init_dt_scan -> early_init_dt_scan_memory
+ *   을 통해서 dt에서 읽은 memory 값으로 최초에 memblock에 추가가 될것이다.
+ */
 phys_addr_t __init_memblock memblock_start_of_DRAM(void)
 {
 	return memblock.memory.regions[0].base;
