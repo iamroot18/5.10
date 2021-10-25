@@ -115,3 +115,7 @@
 ### 21주차
 - 2021.10.16, Zoom 온라인(21명 참석)
 - memblock_add() -> memblock_add_range() 진행중
+
+### 22주차
+- 2021.10.23, Zoom 온라인(14명 참석)
+- memblock 완료
