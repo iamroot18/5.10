@@ -778,17 +778,16 @@ repeat:
 /*
  * IAMROOT, 2021.10.16:
  * - region base가 요청된 end 보다 크다면 종료
+ *
  *  rend +--------+
  *       |        | 
  *       | region | 
- *
  * rbase +--------+ 
  *                  +-----+ end
  *                  |     |
  *                  | new |
  *                  |     |
  *                  +-----+ base
- *
  */
 		if (rbase >= end)
 			break;
@@ -814,15 +813,18 @@ repeat:
 		 */
 /*
  * IAMROOT, 2021.10.16:
- * - region base가 base 보다 크다면 그 차이 만큼만 현재 region에 insert 한다
+ * 여기서부터는 기존 region과 새로 추가할 region이 겹치는 경우이며
+ * 그에 따른 추가 작업을 수행한다.
  *
- * 1) rend <= end 인 상황
+ * - region base가 base 보다 크면 rbase - base 영역만 새로 insert.
+ *
+ * 1) rend >= end 인 상황
  *  rend +--------+
  *       |        | +-----+ end
  *       | region | |     |
- * rbase +--------+ | new |
- *                  |     |
- *                  +-----+ base
+ * rbase +--------+ | new |    <--+--------
+ *                  |     |       | 추가하는 부분
+ *                  +-----+ base  +--------
  */
 		if (rbase > base) {
 #ifdef CONFIG_NEED_MULTIPLE_NODES
@@ -838,9 +840,8 @@ repeat:
 /*
  * IAMROOT, 2021.10.16:
  * 
- * rend 보다 end가 더 작거나 같다면 추가할 block 없는것이고,
+ * rend >= end 라면 추가할 block이 없지만 아래와 같이 rend < end 면
  *
- * 하지만 rend < end 상황이라면
  *                  +-----+ end
  *                  |     |
  *  rend +--------+ |     |
@@ -850,7 +851,7 @@ repeat:
  *                  |     |
  *                  +-----+ base
  *
- * 위상황에서 base = min(rend, end)에 의해 다음과 같이 고쳐질것이다.
+ * base = min(rend, end)에 의해 다음과 같이 base가 변경된다.
  *
  *                  +-----+ end
  *                  | ins |
@@ -862,16 +863,16 @@ repeat:
  *                  |     |
  *                  +-----+ (before) base
  *
- * 위와 같은 상황에서 rend ~ end를 마저 할당해야되므로
- * base는 rend로 해서 다음 iterate때 할당할것이다.
+ * 위와 같은 상황에서 '(after) base ~ end'를 마저 추가해야하므로
+ * base는 rend로 설정하고 다음 iterate때 추가한다.
  */
 		/* area below @rend is dealt with, forget about it */
 		base = min(rend, end);
 	}
 /*
  * IAMROOT, 2021.10.23:
- * - for문 종료후 base, end를 비교. 즉 마지막 block이 남아있는것이 있으면
- *   그것을 새로 할당하기 위함.
+ * - for문 종료후 'base < end' 조건이 참이라면 추가할 block이 있는 것이므로
+ *   해당 block 추가.
  */
 	/* insert the remaining portion */
 	if (base < end) {
@@ -894,7 +895,12 @@ repeat:
 	if (!insert) {
 /*
  * IAMROOT, 2021.10.23:
- * - max(128)를 초과하면 두배씩 확장하겠다는 의미.
+ * - 1st loop에서는 memblock region에 추가할 영역의 '갯수(nr_new)'를 계산하고
+ *   만약 '갯수 > max(128)' 라면 memblock region을 현재 크기에서 2배수로
+ *   확장시킨다.
+ *
+ * - 계산이 완료되면 'insert = true' flag를 설정하고 'goto repeat' 통해
+ *   2th loop를 수행하며 이때 요청 region을 추가한다.
  */
 		while (type->cnt + nr_new > type->max)
 			if (memblock_double_array(type, obase, size) < 0)
@@ -902,6 +908,11 @@ repeat:
 		insert = true;
 		goto repeat;
 	} else {
+/*
+ * IAMROOT, 2021.10.25:
+ * - memblock region 전체를 iter하여 blocks 중에 인접 blocks을 merging
+ *   할 수 있다면 merging하여 1개의 block unit으로 만든다.
+ */
 		memblock_merge_regions(type);
 		return 0;
 	}
