@@ -750,10 +750,13 @@ static int __init do_early_param(char *param, char *val,
  *   정의들이 존재하며 그 값들과 비교하는것들이다.
  *
  *   cmd line에 예를들어 다음과 같은 param들이 존재한다고 한다.
- *	initrd=0x41000000,8M console=ttyS0,115200n8
+ *   
+ *   initrd=0x41000000,8M console=ttyS0,115200n8
+ *
  *   이 경우 initrd는 early_param("initrd", early_initrd) 로 지정된 값들이
  *   호출된것이고, console은 예외적으로 earlycon을 찾는데 해당 정의는
  *   drivers/tty/serial/earlycon.c 에서 보인다.
+ *
  *   (early_param("earlycon", param_setup_earlycon))
  *
  *   원래는 cmd line string과 early의 str 정의가 같아야되만 console은 옛날부터

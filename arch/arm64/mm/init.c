@@ -391,7 +391,7 @@ void __init arm64_memblock_init(void)
  * memblock_end_of_DRAM()   | remove
  * ..                       | add
  * (linear_region_size      | add
- * 보다 큰 간격)            |
+ * 보다 큰 간격)            | add
  * ...                      | add
  * memstart_addr            | add
  * ...                      | remove
@@ -405,9 +405,9 @@ void __init arm64_memblock_init(void)
  * ..                       | add
  * linear_region_size       | add
  * ...                      | add
- * memstart_addr            | add 
- * ...                      | add <-- memstart_addr이 위로 올라갔으므로
- * old_memstart_addr        | add <-- 이 부분들이 remove되야된다.
+ * memstart_addr      <.    | add 
+ * ...                 |    | add <-- memstart_addr이 위로 올라갔으므로
+ * (old_memstart_addr) /    | add <-- 이 부분들이 remove되야된다.
  * ...                      | remove
  * -------------------------+--------
  *
@@ -470,8 +470,9 @@ void __init arm64_memblock_init(void)
  * - 외부에서 memory_limis값이 지정이되면 해당값을 기준으로 초기화가 이루어진다.
  *   memory_limit ~ PHYS_ADDR_MAX를 전부 remove 한다.
  *
- * - kernel이 dram의 위쪽에 load가 될수있는데 이 경우
- *   limit 영역이 kernel image 영역이 제거될수있으므로 다시 add를 해준다.
+ * - kernel이 dram의 위쪽에 load가 될수있는데 이 때 kernel 영역이
+ *   memory_limit 을 걸치고있거나 위에 있을 수 있어 kernel image 영역이
+ *   제거될수있으므로 다시 add를 해준다.
  */
 	if (memory_limit != PHYS_ADDR_MAX) {
 		memblock_mem_limit_remove_map(memory_limit);
@@ -529,6 +530,13 @@ void __init arm64_memblock_init(void)
 		 */
 		if (memstart_offset_seed > 0 && range >= ARM64_MEMSTART_ALIGN) {
 			range /= ARM64_MEMSTART_ALIGN;
+/*
+ * IAMROOT, 2021.10.27:
+ * - memstart_offset_seed는 seed 상위 16bit를 사용했었다.
+ *   즉 memstart_offset_seed는 16bit 이하의 값인데 여기에 range를 곱해서
+ *   memstart_offset_seed의 범위인 16 bit를 넘는 값만을 사용해서 마진을 구할려고
+ *   다음과 같은 식들을 사용한거 같다.
+ */
 			memstart_addr -= ARM64_MEMSTART_ALIGN *
 					 ((range * memstart_offset_seed) >> 16);
 		}
