@@ -828,6 +828,11 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 #define pgd_ERROR(e)	\
 	pr_err("%s:%d: bad pgd %016llx.\n", __FILE__, __LINE__, pgd_val(e))
 
+/*
+ * IAMROOT, 2021.10.30: 
+ * - pgd_set_fixmap(addr):
+ *   전달받은 pgd table의 물리주소 @addr를 FIX_PGD에 매핑한다.
+ */
 #define pgd_set_fixmap(addr)	((pgd_t *)set_fixmap_offset(FIX_PGD, addr))
 #define pgd_clear_fixmap()	clear_fixmap(FIX_PGD)
 

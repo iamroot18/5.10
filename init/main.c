@@ -1416,6 +1416,13 @@ static int try_to_run_init_process(const char *init_filename)
 
 static noinline void __init kernel_init_freeable(void);
 
+/*
+ * IAMROOT, 2021.10.30: 
+ * "rodata=off"와 같이 설정한 경우 커널 코드 및 rodata 섹션 영역의 데이터가
+ * Read Write가 가능하게 매핑한다.
+ * 
+ * 주의: early param의 경우 parse_rodata() 함수에 존재한다.
+ */
 #if defined(CONFIG_STRICT_KERNEL_RWX) || defined(CONFIG_STRICT_MODULE_RWX)
 bool rodata_enabled __ro_after_init = true;
 static int __init set_debug_rodata(char *str)

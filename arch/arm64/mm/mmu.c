@@ -102,6 +102,12 @@ pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 }
 EXPORT_SYMBOL(phys_mem_access_prot);
 
+/*
+ * IAMROOT, 2021.10.30: 
+ * 1개의 페이지 테이블을 생성한다. 반환되는 주소는 물리 주소이다.
+ *   생성한 페이지는 FIX_PTE에 잠시 매핑한 후 memset()으로 
+ *   클리어한다.
+ */
 static phys_addr_t __init early_pgtable_alloc(int shift)
 {
 	phys_addr_t phys;
@@ -373,9 +379,18 @@ static void alloc_init_pud(pgd_t *pgdp, unsigned long addr, unsigned long end,
  * IAMROOT, 2021.10.09: 
  * - 전 단계의 p4d 엔트리 값이 없으면 매핑이 되어 있지 않은 경우이다.
  *   이러한 경우 새로운 pud 테이블을 할당한다. 
- * - 정규 매핑일 때에는 @pgtable_alloc에 함수가 지정되어 들어오나,
- *   fixmap_remap_fdt() -> create_mapping_noalloc()을 통해 들어온 경우
- *   할당 함수를 지정하지 않는다.
+ *
+ * (*pgtable_alloc):
+ *   1) NULL
+ *      할당을 할 수 없는 상황에서 사용한다.
+ *      호출 경로: fixmap_remap_fdt() -> create_mapping_noalloc()
+ *   
+ *   2) early_pgtable_alloc()
+ *      정규 메모리 할당자는 사용하지 못하지만 memblock을 사용하여 할당한다.
+ *      호출 경로: map_kernel_segment()
+ *
+ *   3) pgd_pgtable_alloc()
+ *   4) __pgd_pgtable_alloc()
  */
 	if (p4d_none(p4d)) {
 		phys_addr_t pud_phys;
@@ -668,6 +683,10 @@ static void __init map_kernel_segment(pgd_t *pgdp, void *va_start, void *va_end,
 	__create_pgd_mapping(pgdp, pa_start, (unsigned long)va_start, size, prot,
 			     early_pgtable_alloc, flags);
 
+/*
+ * IAMROOT, 2021.10.30: 
+ * VM 공간과 VM 사이에 가드 페이지를 추가한다. (VM_NO_GUARD 제외)
+ */
 	if (!(vm_flags & VM_NO_GUARD))
 		size += PAGE_SIZE;
 
@@ -680,6 +699,26 @@ static void __init map_kernel_segment(pgd_t *pgdp, void *va_start, void *va_end,
 	vm_area_add_early(vma);
 }
 
+/*
+ * IAMROOT, 2021.10.30: 
+ * 1) "rodata=off"
+ *     rodata_enabled=false
+ *     rodata_full=false
+ *     -> 커널 및 rodata 영역을 모두 RW로 매핑하여 사용한다.
+ * 2) "rodata=on"
+ *     rodata_enabled=true
+ *     rodata_full=false
+ *     -> 커널만 Read only로 매핑하여 사용한다.
+ * 3) "rodata=full"
+ *     rodata_enabled=true
+ *     rodata_full=true
+ *     -> 커널 및 rodata 영역을 모두 Read only로 매핑하여 사용한다.
+ *
+ * - rodata_enabled=true(default)인 경우 커널 코드를 read only로 매핑한다.
+ * - rodata_full=true(default)인 경우 커널 및 rodata 영역을 read only로 매핑한다.
+ *
+ * 주의: early param이 아닌 정규 param은 set_debug_rodata() 함수에도 존재한다.
+ */
 static int __init parse_rodata(char *arg)
 {
 	int ret = strtobool(arg, &rodata_enabled);
@@ -756,6 +795,11 @@ static void __init map_kernel(pgd_t *pgdp)
 	 * mapping to install SW breakpoints. Allow this (only) when
 	 * explicitly requested with rodata=off.
 	 */
+/*
+ * IAMROOT, 2021.10.30: 
+ * PAGE_KERNEL_ROX:   Kernel Read Only + Exec     (default)
+ * PAGE_KERNEL_EXEC:  Kernel Read + Write + Exec
+ */
 	pgprot_t text_prot = rodata_enabled ? PAGE_KERNEL_ROX : PAGE_KERNEL_EXEC;
 
 	/*
@@ -763,6 +807,15 @@ static void __init map_kernel(pgd_t *pgdp)
 	 * BTI then mark the kernel executable text as guarded pages
 	 * now so we don't have to rewrite the page tables later.
 	 */
+/*
+ * IAMROOT, 2021.10.30: 
+ * cpu가 BTI(Branch Target Identification) 기능을 지원하는 경우 이 페이지의
+ * 매핑 속성에 PTE_GP를 추가한다.
+ * 이 기능은 JOP(Jump Oriented Program) & ROP(Return Oriented Program) Attack을 
+ * 회피하기 위해 ARMv8.5 & GCC 9.1에서 PAC(Pointer Authentication Code)를 
+ * 만들어 방어한다. 만일 위조된 주소를 사용하면 Branch Target Exception이 
+ * 발생한다.
+ */
 	if (arm64_early_this_cpu_has_bti())
 		text_prot = __pgprot_modify(text_prot, PTE_GP, PTE_GP);
 
@@ -770,6 +823,15 @@ static void __init map_kernel(pgd_t *pgdp)
 	 * Only rodata will be remapped with different permissions later on,
 	 * all other segments are allowed to use contiguous mappings.
 	 */
+/*
+ * IAMROOT, 2021.10.30: 
+ * 커널 영역을 매핑하는데 다음과 같이 5개의 영역의 속성을 달리하여 매핑한다.
+ * 1) .text 섹션 영역
+ * 2) .rodata 섹션 영역 <- 일단 RW (NO_CONT_MAPPINGS)
+ * 3) .init.text 섹션 영역
+ * 4) .init.data 섹션 영역
+ * 5) .data 섹션 영역
+ */
 	map_kernel_segment(pgdp, _text, _etext, text_prot, &vmlinux_text, 0,
 			   VM_NO_GUARD);
 	map_kernel_segment(pgdp, __start_rodata, __inittext_begin, PAGE_KERNEL,
@@ -780,6 +842,15 @@ static void __init map_kernel(pgd_t *pgdp)
 			   &vmlinux_initdata, 0, VM_NO_GUARD);
 	map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
 
+/*
+ * IAMROOT, 2021.10.30: 
+ * 기존에 init_pg_dir에 fixmap을 매핑하였었다. 이 코드에서는 swapper_pg_dir에서
+ * fixmap(FIXADDR_START) 주소 공간이 이미 매핑된 상태인지 확인하여 매핑하지
+ * 않은 경우 fixmap을 매핑하도록 한다.
+ *
+ * 단 16K, 4레벨 페이지 테이블을 사용하는 경우는 else if 조건을 사용한다.
+ * 예) 0x11111111_11111111 pgd(1) pud(11) pmd(11) pte(11) offset(14)
+ */
 	if (!READ_ONCE(pgd_val(*pgd_offset_pgd(pgdp, FIXADDR_START)))) {
 		/*
 		 * The fixmap falls in a separate pgd to the kernel, and doesn't
@@ -808,6 +879,10 @@ static void __init map_kernel(pgd_t *pgdp)
 		BUG();
 	}
 
+/*
+ * IAMROOT, 2021.10.30: 
+ * KASAN 용도로 페이지 테이블 사본을 만든다.
+ */
 	kasan_copy_shadow(pgdp);
 }
 
