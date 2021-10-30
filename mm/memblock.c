@@ -522,6 +522,11 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 	else
 		in_slab = &memblock_reserved_in_slab;
 
+/*
+ * IAMROOT, 2021.10.23:
+ * - memblock은 물리주소(addr)을 할당받아서 가상주소로 변환을 시켜주고,
+ *   slab은 가상주소(new_array)를 할당받아서 물리주소(addr)로 변환한다.
+ */
 	/* Try to find some space for it */
 	if (use_slab) {
 		new_array = kmalloc(new_size, GFP_KERNEL);
@@ -530,11 +535,7 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 		/* only exclude range when trying to double reserved.regions */
 		if (type != &memblock.reserved)
 			new_area_start = new_area_size = 0;
-/*
- * IAMROOT, 2021.10.23:
- * - memblock은 물리주소(addr)을 할당받아서 가상주소로 변환을 시켜주고,
- *   slab은 가상주소(new_array)를 할당받아서 물리주소(addr)로 변환한다.
- */
+
 		addr = memblock_find_in_range(new_area_start + new_area_size,
 						memblock.current_limit,
 						new_alloc_size, PAGE_SIZE);
@@ -550,6 +551,18 @@ static int __init_memblock memblock_double_array(struct memblock_type *type,
 
 		new_array = addr ? __va(addr) : NULL;
 	}
+/*
+ * IAMROOT, 2021.10.30:
+ * - 위 if-statement 가 완료된 후에 변수 new_array, addr는 아래와 같은 state를
+ *   가진다.
+ *
+ *   addr = pa(new_array)
+ *   new_array = va(addr)
+ *
+ *   slab을 통한 alloc은 va만 알고 있으므로 addr = pa(new_array)를 해주고,
+ *   memblock을 통한 alloc은 pa만 알고 있으므로 new_array = va(addr)를
+ *   해줘야한다.
+ */
 
 	if (!addr) {
 		pr_err("memblock: Failed to double %s array from %ld to %ld entries !\n",
