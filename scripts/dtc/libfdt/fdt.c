@@ -208,6 +208,10 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 	return tag;
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - node의 시작점인지 확인한다.
+ */
 int fdt_check_node_offset_(const void *fdt, int offset)
 {
 	if (!can_assume(VALID_INPUT)
@@ -220,6 +224,10 @@ int fdt_check_node_offset_(const void *fdt, int offset)
 	return offset;
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - 다음 tag가 property가 아닐경우 error, 아니면 현재 offset을 넘긴다.
+ */
 int fdt_check_prop_offset_(const void *fdt, int offset)
 {
 	if (!can_assume(VALID_INPUT)

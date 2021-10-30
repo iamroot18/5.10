@@ -89,6 +89,10 @@
  * FIELD_PREP() masks and shifts up the value.  The result should
  * be combined with other fields of the bitfield using logical OR.
  */
+/*
+ * IAMROOT, 2021.10.30:
+ * - 해당 mask에서 val 값을 가져온다.
+ */
 #define FIELD_PREP(_mask, _val)						\
 	({								\
 		__BF_FIELD_CHECK(_mask, 0ULL, _val, "FIELD_PREP: ");	\

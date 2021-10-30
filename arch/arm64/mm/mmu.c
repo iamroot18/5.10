@@ -589,8 +589,17 @@ void __init mark_linear_text_alias_ro(void)
 			    PAGE_KERNEL_RO);
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - kernel memory / 그외의  memory에 대한 mapping을 한다.
+ */
 static void __init map_mem(pgd_t *pgdp)
 {
+/*
+ * IAMROOT, 2021.10.30:
+ * - kernel img + got + rodata + pgtable(idmap + tramp + swapper) 의 영역이된다.
+ *   (init.text 전까지)
+ */
 	phys_addr_t kernel_start = __pa_symbol(_text);
 	phys_addr_t kernel_end = __pa_symbol(__init_begin);
 	phys_addr_t start, end;
@@ -606,13 +615,29 @@ static void __init map_mem(pgd_t *pgdp)
 	 * So temporarily mark them as NOMAP to skip mappings in
 	 * the following for-loop
 	 */
+/*
+ * IAMROOT, 2021.10.30:
+ * - kernel 영역에대한 memory region을 일단 nomap으로 설정한다.
+ */
 	memblock_mark_nomap(kernel_start, kernel_end - kernel_start);
+/*
+ * IAMROOT, 2021.10.30:
+ * - creah kernel config
+ */
 #ifdef CONFIG_KEXEC_CORE
 	if (crashk_res.end)
 		memblock_mark_nomap(crashk_res.start,
 				    resource_size(&crashk_res));
 #endif
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 그전 루틴에서 초기화했던 mm/memblock.c의 memory region를 순회를 하면서
+ *   각 memory region에서 MEMBLOCK_NONE인 block들만을 위에 설정된 flags로
+ *   설정하면서 page 속성을 PAGE_KERNEL_TAGGED로 mapping한다.
+ *
+ * - 바로 위에서 kernel 영역을 nomap으로 설정했으므로 kernel영역은 무조건 제외된다는게
+ *   확인된다.
+ */
 	/* map all the memory banks */
 	for_each_mem_range(i, &start, &end) {
 		if (start >= end)
@@ -635,8 +660,21 @@ static void __init map_mem(pgd_t *pgdp)
 	 * Note that contiguous mappings cannot be remapped in this way,
 	 * so we should avoid them here.
 	 */
+/*
+ * IAMROOT, 2021.10.30:
+ * - 이제 kernel 영역을 page를 PAGE_KERNEL로(rw), memory flag를 NO_CONT_MAPPINGS을
+ *   한다.
+ *
+ * - NO_CONT_MAPPINGS을 하는 이유
+ *   후에 영역별로 r / rw등으로 나눠야되기때문이다.
+ */
 	__map_memblock(pgdp, kernel_start, kernel_end,
 		       PAGE_KERNEL, NO_CONT_MAPPINGS);
+
+/*
+ * IAMROOT, 2021.10.30:
+ * - 초반에 해놨던 kernel 영역 nomap 설정을 여기서 다시 풀어준다.
+ */
 	memblock_clear_nomap(kernel_start, kernel_end - kernel_start);
 
 #ifdef CONFIG_KEXEC_CORE
@@ -885,19 +923,38 @@ static void __init map_kernel(pgd_t *pgdp)
  */
 	kasan_copy_shadow(pgdp);
 }
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - memory 전체에 대한 mapping을 swapper_pg_dir에 완료 및 교체후
+ *   init_pg_dir을 삭제한다.
+ */
 void __init paging_init(void)
 {
+/*
+ * IAMROOT, 2021.10.30:
+ * - mapping을 위해 잠시 FIX_PGD를 사용한다.
+ */
 	pgd_t *pgdp = pgd_set_fixmap(__pa_symbol(swapper_pg_dir));
 
 	map_kernel(pgdp);
 	map_mem(pgdp);
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - mapping이 끝낫으므로 FIX_PGD를 해제한다.
+ */
 	pgd_clear_fixmap();
 
 	cpu_replace_ttbr1(lm_alias(swapper_pg_dir));
+/*
+ * IAMROOT, 2021.10.30:
+ * - 이제부터 정석으로 kernel page table인 swapper_pg_dir을 사용하기 시작한다.
+ */
 	init_mm.pgd = swapper_pg_dir;
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 이제 더이상 사용안하는 init_pg_dir은 삭제한다.
+ */
 	memblock_free(__pa_symbol(init_pg_dir),
 		      __pa_symbol(init_pg_end) - __pa_symbol(init_pg_dir));
 

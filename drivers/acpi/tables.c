@@ -499,7 +499,10 @@ static struct cpio_data __initdata acpi_initrd_files[NR_ACPI_INITRD_TABLES];
 static DECLARE_BITMAP(acpi_initrd_installed, NR_ACPI_INITRD_TABLES);
 
 #define MAP_CHUNK_SIZE   (NR_FIX_BTMAPS << PAGE_SHIFT)
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - PASS
+ */
 void __init acpi_table_upgrade(void)
 {
 	void *data;

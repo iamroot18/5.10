@@ -51,6 +51,13 @@ static inline void cpu_set_reserved_ttbr0(void)
 
 void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm);
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - user공간 mm을 교체하기 위한 함수.,
+ *
+ * - booting중에 idmap로 잠시 교체할때 idmap도 user 영역인 ttbr0를 사용하므로 이
+ *   함수를 사용한다.
+ */
 static inline void cpu_switch_mm(pgd_t *pgd, struct mm_struct *mm)
 {
 	BUG_ON(pgd == swapper_pg_dir);
@@ -66,6 +73,10 @@ static inline void cpu_switch_mm(pgd_t *pgd, struct mm_struct *mm)
 extern u64 idmap_t0sz;
 extern u64 idmap_ptrs_per_pgd;
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - 그전에 setting햇던것과 같은 size라면 false, 다르다면 true
+ */
 static inline bool __cpu_uses_extended_idmap(void)
 {
 	if (IS_ENABLED(CONFIG_ARM64_VA_BITS_52))
@@ -85,6 +96,11 @@ static inline bool __cpu_uses_extended_idmap_level(void)
 
 /*
  * Set TCR.T0SZ to its default value (based on VA_BITS)
+ */
+/*
+ * IAMROOT, 2021.10.30:
+ * - tcr_el1 에서 ttbr0 va사이즈를 재설정하는데, 그전에 설정한 값과 같은 경우라면
+ *   하지 않는다.
  */
 static inline void __cpu_set_tcr_t0sz(unsigned long t0sz)
 {
@@ -120,6 +136,10 @@ static inline void __cpu_set_tcr_t0sz(unsigned long t0sz)
  * which should not be installed in TTBR0_EL1. In this case we can leave the
  * reserved page tables in place.
  */
+/*
+ * IAMROOT, 2021.10.30:
+ * - idmap이 사용이 끝낫으므로 ttbr0을 다시 비운다.
+ */
 static inline void cpu_uninstall_idmap(void)
 {
 	struct mm_struct *mm = current->active_mm;
@@ -134,18 +154,36 @@ static inline void cpu_uninstall_idmap(void)
 
 /*
  * IAMROOT, 2021.10.16:
- * - TODO
+ * - cpu_replace_ttbr1 에서 호출되는
+ * - kernel에서 kernel로 변경을 하는건 의미가 없으므로 mm != init_mm이 있다.
+ *   
  */
 	if (mm != &init_mm && !system_uses_ttbr0_pan())
 		cpu_switch_mm(mm->pgd, mm);
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - idmap을 사용하기 위해 ttbr register를 설정한다.
+ * - cpu_switch_mm에서 ttbr1도 설정하지만 사실상 ttbr1은 그대로 쓰는거나 마찬가지라
+ *   변함이없지만 idmap자체가 user용 ttbr0을 쓰는거라 user용 ttbr0교체 함수인
+ *   cpu_switch_mm을 사용하는것이다.
+ */
 static inline void cpu_install_idmap(void)
 {
+/*
+ * IAMROOT, 2021.10.30:
+ * - ttbr0원래 user용도지만 는 head.S부터 임시로 idmap으로 사용하고 잇었다.
+ *   idmap을 임시로 다시 사용하기위해 ttbr0를 reserved 시켜준다.
+ */
 	cpu_set_reserved_ttbr0();
 	local_flush_tlb_all();
 	cpu_set_idmap_tcr_t0sz();
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - 공통함수를 사용하기위해 init_mm을 그냥 사용했다.
+ */
 	cpu_switch_mm(lm_alias(idmap_pg_dir), &init_mm);
 }
 
@@ -156,6 +194,10 @@ static inline void cpu_install_idmap(void)
 static inline void cpu_replace_ttbr1(pgd_t *pgdp)
 {
 	typedef void (ttbr_replace_func)(phys_addr_t);
+/*
+ * IAMROOT, 2021.10.30:
+ * - mm/proc.S 에 해당 함수 존재.
+ */
 	extern ttbr_replace_func idmap_cpu_replace_ttbr1;
 	ttbr_replace_func *replace_phys;
 

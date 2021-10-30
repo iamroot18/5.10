@@ -116,13 +116,31 @@ static void populate_properties(const void *blob,
 	bool has_name = false;
 
 	pprev = &np->properties;
+/*
+ * IAMROOT, 2021.10.30:
+ * - 다음과 같은 node를 예로들면 
+ *
+ *   A57_0: cpu@0 {
+ *	device_type = "cpu";
+ *	compatible = "arm,cortex-a57";
+ *	reg = <0 0>;
+ *	enable-method = "psci";
+ *	next-level-cache = <&CLUSTER0_L2>;
+ *  };
+ *
+ *  property는 device_type, compatible, reg ..등등이 존재하고 그 순서대로
+ *  dtb에 있으며 그것을 순서대로 순회할것이다.
+ */
 	for (cur = fdt_first_property_offset(blob, offset);
 	     cur >= 0;
 	     cur = fdt_next_property_offset(blob, cur)) {
 		const __be32 *val;
 		const char *pname;
 		u32 sz;
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - curr offset에서 property의 pname과 sz를 구해온다.
+ */
 		val = fdt_getprop_by_offset(blob, cur, &pname, &sz);
 		if (!val) {
 			pr_warn("Cannot locate property at 0x%x\n", cur);
@@ -212,10 +230,20 @@ static bool populate_node(const void *blob,
 			  struct device_node **pnp,
 			  bool dryrun)
 {
+/*
+ * IAMROOT, 2021.10.30:
+ * - np : node pointer
+ * - pnp : parnet node pointer
+ */
 	struct device_node *np;
 	const char *pathp;
 	unsigned int l, allocl;
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - pathp : node name string
+ * - l : node name string length
+ */
 	pathp = fdt_get_name(blob, offset, &l);
 	if (!pathp) {
 		*pnp = NULL;
@@ -232,7 +260,10 @@ static bool populate_node(const void *blob,
 		np->full_name = fn = ((char *)np) + sizeof(*np);
 
 		memcpy(fn, pathp, l);
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 계층구조를 만든다.(부모 node에 child를 node를 연결 및 sibling 노드 연결)
+ */
 		if (dad != NULL) {
 			np->parent = dad;
 			np->sibling = dad->child;
@@ -284,6 +315,15 @@ static void reverse_nodes(struct device_node *parent)
  *
  * It returns the size of unflattened device tree or error code
  */
+/*
+ * IAMROOT, 2021.10.30:
+ * - mem가 인경우 size만 구해온다.
+ *   memblock으로 할당을 해야되는데 mmemblock으로 partial로 할당하면
+ *   너무 비효율적이므로 size를 모두 구해 해당 size를 먼저 구한후 memblock으로
+ *   할당하고 다시 초기화를 이룬다.
+ *
+ * - nodepp는 mem이 NULL이 아닌 경우에만 사용한다.
+ */
 static int unflatten_dt_nodes(const void *blob,
 			      void *mem,
 			      struct device_node *dad,
@@ -294,6 +334,12 @@ static int unflatten_dt_nodes(const void *blob,
 #define FDT_MAX_DEPTH	64
 	struct device_node *nps[FDT_MAX_DEPTH];
 	void *base = mem;
+/*
+ * IAMROOT, 2021.10.30:
+ * - mem, nodepp가 null인경우 size만 미리 구해와야되는데 size만 구해오는 flag가
+ *   dryrun이다.
+ *   mem == NULL이면 base = NULL 이고 !base = !null = !false = true = dryrun
+ */
 	bool dryrun = !base;
 
 	if (nodepp)
@@ -317,7 +363,11 @@ static int unflatten_dt_nodes(const void *blob,
 	     offset = fdt_next_node(blob, offset, &depth)) {
 		if (WARN_ON_ONCE(depth >= FDT_MAX_DEPTH))
 			continue;
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 해당 CONFIG가 enable인경우 /sys/firmware/devicetree를 만들어 fs에서 접근이
+ *   쉽게 한다.
+ */
 		if (!IS_ENABLED(CONFIG_OF_KOBJ) &&
 		    !of_fdt_device_is_available(blob, offset))
 			continue;
@@ -389,7 +439,10 @@ void *__unflatten_device_tree(const void *blob,
 		pr_err("Invalid device tree blob header\n");
 		return NULL;
 	}
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 처음엔 size만을 구해온다.
+ */
 	/* First pass, scan for size */
 	size = unflatten_dt_nodes(blob, NULL, dad, NULL);
 	if (size < 0)
@@ -397,7 +450,11 @@ void *__unflatten_device_tree(const void *blob,
 
 	size = ALIGN(size, 4);
 	pr_debug("  size is %d, allocating...\n", size);
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - unflatten_device_tree로 불러와지는 early상황일때는
+ *   early_init_dt_alloc_memory_arch 함수로 alloc된다.(memblock)
+ */
 	/* Allocate memory for the expanded device tree */
 	mem = dt_alloc(size + 4, __alignof__(struct device_node));
 	if (!mem)
@@ -409,6 +466,10 @@ void *__unflatten_device_tree(const void *blob,
 
 	pr_debug("  unflattening %p...\n", mem);
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - 실제 unflatten하기 위해 다시한번 호출한다.
+ */
 	/* Second pass, do actual unflattening */
 	unflatten_dt_nodes(blob, mem, dad, mynodes);
 	if (be32_to_cpup(mem + size) != 0xdeadbeef)
@@ -1343,6 +1404,12 @@ bool __init early_init_dt_scan(void *params)
  * tree of struct device_node. It also fills the "name" and "type"
  * pointers of the nodes so the normal device-tree walking functions
  * can be used.
+ */
+/*
+ * IAMROOT, 2021.10.30:
+ * - device tree는 전부 of_xxx.. 로 시작한다.
+ *
+ * - dtb는 flattened 형태였는데 이것을 다시 object화(unflatten) 시키기 위한것.
  */
 void __init unflatten_device_tree(void)
 {

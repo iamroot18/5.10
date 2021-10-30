@@ -22,7 +22,11 @@
 #include <asm/pgtable-hwdef.h>
 #include <asm/ptrace.h>
 #include <asm/thread_info.h>
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 원래 있던 daif에 대한 flag를 읽어온후 disable 시킨다.
+ * - restore_daif와 한쌍이 된다.
+ */
 	.macro save_and_disable_daif, flags
 	mrs	\flags, daif
 	msr	daifset, #0xf
@@ -35,7 +39,11 @@
 	.macro enable_daif
 	msr	daifclr, #0xf
 	.endm
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 저장해놓은 flag를 다시 복귀 시킨다.
+ * - save_and_disable_daif와 한쌍이 된다.
+ */
 	.macro	restore_daif, flags:req
 	msr	daif, \flags
 	.endm

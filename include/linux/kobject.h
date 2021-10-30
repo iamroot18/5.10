@@ -61,13 +61,25 @@ enum kobject_action {
 	KOBJ_UNBIND,
 };
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - directory 구조를 가진다.
+ */
 struct kobject {
+/*
+ * IAMROOT, 2021.10.30:
+ * - dt에서 kobject를 사용할경우 node name을 그대로 가져다가 name으로 쓸것이다.
+ */
 	const char		*name;
 	struct list_head	entry;
 	struct kobject		*parent;
 	struct kset		*kset;
 	struct kobj_type	*ktype;
 	struct kernfs_node	*sd; /* sysfs directory entry */
+/*
+ * IAMROOT, 2021.10.30:
+ * - 참조를 안하고있을때 삭제가 가능하도록 reference구조를 가진다.
+ */
 	struct kref		kref;
 #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
 	struct delayed_work	release;

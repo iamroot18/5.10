@@ -681,6 +681,19 @@ static __always_inline bool system_supports_sve(void)
 		cpus_have_const_cap(ARM64_SVE);
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - CONFIG_ARM64_CNP : Common Not Private
+ *   Page table을 cpu마다 쓸지, 모든 cpu에서 동작을 하게 할지.
+ *   즉 CNP = true이면 모든 cpu에서 사용하게 한다는것.
+ *
+ * - ARM64_PAN : kernel이 user 공간을 access하지 못하게 하는 기능.
+ *   (PAGE 속성의 UXN, PXN는 실행. 이것은 access(r/w)의 개념)
+ *
+ * - ARM64_SW_TTBR0_PAN : PAN을 지원하지 않은 하드웨어에서, kernel mode 진입시
+ *   ttbr0를 강제로 모든 data가 0으로 되어있는 reserved page에 연결시켜놓는 기능.
+ *   이렇게 함으로써 kernel에서 user 영역으로 access하지 못하게 간접적으로 막는다.
+ */
 static __always_inline bool system_supports_cnp(void)
 {
 	return IS_ENABLED(CONFIG_ARM64_CNP) &&

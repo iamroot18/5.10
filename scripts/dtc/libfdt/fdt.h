@@ -37,7 +37,10 @@ struct fdt_node_header {
 	fdt32_t tag;
 	char name[0];
 };
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - dtb에 이런 형태로 데이터들이 저장되있다.
+ */
 struct fdt_property {
 	fdt32_t tag;
 	fdt32_t len;

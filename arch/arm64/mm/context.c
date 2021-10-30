@@ -348,6 +348,11 @@ asmlinkage void post_ttbr_update_workaround(void)
 
 void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm)
 {
+/*
+ * IAMROOT, 2021.10.30:
+ * - ttbr1의 경우 원래 값을 가져온후 mm에 있는 asid값으로 교체를 하고
+ *   ttbr0는 인자로 가져온 page table + asid + cnp로 설정한다.
+ */
 	unsigned long ttbr1 = read_sysreg(ttbr1_el1);
 	unsigned long asid = ASID(mm);
 	unsigned long ttbr0 = phys_to_ttbr(pgd_phys);

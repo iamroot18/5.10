@@ -195,6 +195,10 @@ out:
  *
  * ACPI is disabled on function return otherwise
  */
+/*
+ * IAMROOT, 2021.10.30:
+ * - PASS
+ */
 void __init acpi_boot_table_init(void)
 {
 	/*

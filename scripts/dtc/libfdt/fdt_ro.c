@@ -297,6 +297,17 @@ int fdt_path_offset(const void *fdt, const char *path)
 	return fdt_path_offset_namelen(fdt, path, strlen(path));
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - node이름을 가져온다.
+ * -  ex)
+ * cpus {
+ *	#address-cells = <2>;
+ *	#size-cells = <0>;
+ *	...
+ *
+ * 일때 cpu라는 string을 가져온다.
+ */
 const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 {
 	const struct fdt_node_header *nh = fdt_offset_ptr_(fdt, nodeoffset);
@@ -335,6 +346,15 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 	return NULL;
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * @fdt : dtb의 첫 주소.
+ * @nodeoffset : 현재 node의 offset
+ * 유효한 속성의 offset을 가져온다.
+ *
+ * - 현재 tag가 node의 시작점인지 인지를 확인하고,
+ *   맞다면 첫번째 proeprty offset을 구해온다. 아니라면 error return.
+ */
 int fdt_first_property_offset(const void *fdt, int nodeoffset)
 {
 	int offset;
@@ -345,14 +365,30 @@ int fdt_first_property_offset(const void *fdt, int nodeoffset)
 	return nextprop_(fdt, offset);
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - 다음 tag가 property인지를 확인하고, 맞다면 다음 proeprty offset을 구해온다.
+ *   아니라면 error return;
+ */
 int fdt_next_property_offset(const void *fdt, int offset)
 {
+/*
+ * IAMROOT, 2021.10.30:
+ * - 다음 tag가 property인지 확인한다.
+ */
 	if ((offset = fdt_check_prop_offset_(fdt, offset)) < 0)
 		return offset;
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 다음이 propoery가 맞으므로 다음 property의 offset을 구해온다ㅑ.
+ */
 	return nextprop_(fdt, offset);
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - 해당 offset에서 property를 가져온다.
+ */
 static const struct fdt_property *fdt_get_property_by_offset_(const void *fdt,
 						              int offset,
 						              int *lenp)
@@ -391,6 +427,12 @@ const struct fdt_property *fdt_get_property_by_offset(const void *fdt,
 	return fdt_get_property_by_offset_(fdt, offset, lenp);
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * @offset에서 fdt_property를 구해온다. 실패시 null
+ * @lenp : fdt_property의 length값을 가져오거나 error code
+ * @poffset : 찾은 property의 offset
+ */
 static const struct fdt_property *fdt_get_property_namelen_(const void *fdt,
 						            int offset,
 						            const char *name,
@@ -408,6 +450,10 @@ static const struct fdt_property *fdt_get_property_namelen_(const void *fdt,
 			offset = -FDT_ERR_INTERNAL;
 			break;
 		}
+/*
+ * IAMROOT, 2021.10.30:
+ * - 인자로 들어온 name과 일치하는 property를 찾는다.
+ */
 		if (fdt_string_eq_(fdt, fdt32_ld(&prop->nameoff),
 				   name, namelen)) {
 			if (poffset)
@@ -415,7 +461,10 @@ static const struct fdt_property *fdt_get_property_namelen_(const void *fdt,
 			return prop;
 		}
 	}
-
+/*
+ * IAMROOT, 2021.10.30:
+ * - 못찾앗으면 다음 offset을 가리키고(next node) NULL return
+ */
 	if (lenp)
 		*lenp = offset;
 	return NULL;
@@ -466,6 +515,14 @@ const void *fdt_getprop_namelen(const void *fdt, int nodeoffset,
 	return prop->data;
 }
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - 해당 offset의 propery에 대한 name과 name length, property data를 구해온다.
+ *
+ * @namep : offset에 위치해있는 property의 name
+ * @lenp : offset에 위치해있는 property의 name의 length. error result로도 사용된다.
+ * @return : property data
+ */
 const void *fdt_getprop_by_offset(const void *fdt, int offset,
 				  const char **namep, int *lenp)
 {

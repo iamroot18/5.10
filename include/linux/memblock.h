@@ -218,6 +218,10 @@ static inline void __next_physmem_range(u64 *idx, struct memblock_type *type,
  * @p_start: ptr to phys_addr_t for start address of the range, can be %NULL
  * @p_end: ptr to phys_addr_t for end address of the range, can be %NULL
  */
+/*
+ * IAMROOT, 2021.10.30:
+ * - MEMBLOCK_NONE인 block들만을 골라서 순회한다.
+ */
 #define for_each_mem_range(i, p_start, p_end) \
 	__for_each_mem_range(i, &memblock.memory, NULL, NUMA_NO_NODE,	\
 			     MEMBLOCK_NONE, p_start, p_end, NULL)

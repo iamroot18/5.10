@@ -172,6 +172,10 @@ SYM_FUNC_END(cpu_do_resume)
 
 	.pushsection ".idmap.text", "awx"
 
+/*
+ * IAMROOT, 2021.10.30:
+ * - reserved(zero) page로 ttbr1을 설정해준다.
+ */
 .macro	__idmap_cpu_set_reserved_ttbr1, tmp1, tmp2
 	adrp	\tmp1, empty_zero_page
 	phys_to_ttbr \tmp2, \tmp1
@@ -188,6 +192,12 @@ SYM_FUNC_END(cpu_do_resume)
  *
  * This is the low-level counterpart to cpu_replace_ttbr1, and should not be
  * called by anything else. It can only be executed from a TTBR0 mapping.
+ */
+/*
+ * IAMROOT, 2021.10.30:
+ * - idmap은 이미 ttbr0에 설정되있고, 그후 ttbr1을 재설정하기 위해 진입하는 함수.
+ 
+ * - 스터디 최초에 봤을때 cpu_replace_ttbr1에서 호출되었으며 x0는 ttbr1
  */
 SYM_FUNC_START(idmap_cpu_replace_ttbr1)
 	save_and_disable_daif flags=x2

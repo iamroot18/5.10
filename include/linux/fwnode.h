@@ -16,7 +16,17 @@ struct device;
 
 struct fwnode_handle {
 	struct fwnode_handle *secondary;
+/*
+ * IAMROOT, 2021.10.30:
+ * - operation hook함수
+ *
+ * - of_fwnode_ops, acpi_static_fwnode_ops등이 존재한다.
+ */
 	const struct fwnode_operations *ops;
+/*
+ * IAMROOT, 2021.10.30:
+ * - 실제 연결된 device
+ */
 	struct device *dev;
 };
 

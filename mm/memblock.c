@@ -1315,6 +1315,10 @@ int __init_memblock memblock_mark_mirror(phys_addr_t base, phys_addr_t size)
  *
  * Return: 0 on success, -errno on failure.
  */
+/*
+ * IAMROOT, 2021.10.30:
+ * - mapping을 하지 말라는 flag를 기존 flag에 더한다.
+ */
 int __init_memblock memblock_mark_nomap(phys_addr_t base, phys_addr_t size)
 {
 	return memblock_setclr_flag(base, size, 1, MEMBLOCK_NOMAP);

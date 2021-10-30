@@ -31,7 +31,15 @@ typedef u32 ihandle;
 struct property {
 	char	*name;
 	int	length;
+/*
+ * IAMROOT, 2021.10.30:
+ * - 숫자일수도, 문자일수도 있다.
+ */
 	void	*value;
+/*
+ * IAMROOT, 2021.10.30:
+ * - list처럼 구현된다.
+ */
 	struct property *next;
 #if defined(CONFIG_OF_DYNAMIC) || defined(CONFIG_SPARC)
 	unsigned long _flags;
@@ -39,6 +47,10 @@ struct property {
 #if defined(CONFIG_OF_PROMTREE)
 	unsigned int unique_id;
 #endif
+/*
+ * IAMROOT, 2021.10.30:
+ * - sysfs에서 property가 file로 attribute 형태로 구현된다.
+ */
 #if defined(CONFIG_OF_KOBJ)
 	struct bin_attribute attr;
 #endif
@@ -50,8 +62,27 @@ struct of_irq_controller;
 
 struct device_node {
 	const char *name;
+/*
+ * IAMROOT, 2021.10.30:
+ * - dt를 보면 다음과 같은것이 보인다.
+ *
+ *   interrupt-parent = <&gic>
+ *
+ *   이건 어딘간에 다음과 같이 정의가 되어있다.
+ *
+ *   gic: interrupt-controller@65210000 {
+ *   ...
+ *   }
+ *
+ *   interrupt.. 어찌고가 너무 이름이 길기때문에 tag같은 개념으로 축약해서 쓰는데
+ *   위처럼 &로 불러온다.
+ */
 	phandle phandle;
 	const char *full_name;
+/*
+ * IAMROOT, 2021.10.30:
+ * - firmware node handler 관련 정보들
+ */
 	struct fwnode_handle fwnode;
 
 	struct	property *properties;
@@ -59,6 +90,11 @@ struct device_node {
 	struct	device_node *parent;
 	struct	device_node *child;
 	struct	device_node *sibling;
+/*
+ * IAMROOT, 2021.10.30:
+ * - sysfs 로 만들기 위한 정보
+ *   node는 directory, property는 file로 보이게된다.
+ */
 #if defined(CONFIG_OF_KOBJ)
 	struct	kobject kobj;
 #endif
@@ -103,6 +139,10 @@ struct of_reconfig_data {
 /* initialize a node */
 extern struct kobj_type of_node_ktype;
 extern const struct fwnode_operations of_fwnode_ops;
+/*
+ * IAMROOT, 2021.10.30:
+ * - 인자로 들어온 node를 sysfs 초기화하고, device tree용 ops를 등록한다.
+ */
 static inline void of_node_init(struct device_node *node)
 {
 #if defined(CONFIG_OF_KOBJ)
