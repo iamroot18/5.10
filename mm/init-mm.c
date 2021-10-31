@@ -37,5 +37,11 @@ struct mm_struct init_mm = {
 	.mmlist		= LIST_HEAD_INIT(init_mm.mmlist),
 	.user_ns	= &init_user_ns,
 	.cpu_bitmap	= CPU_BITS_NONE,
+/*
+ * IAMROOT, 2021.10.31:
+ * - arch dependency로 처리할 수 있도록 INIT_MM_CONTEXT를 사용한다.
+ *   Arm64에선 INIT_MM_CONTEXT macro가 수행되어 .pgd 값이 va(init_pg_dir)을
+ *   가르킨다.
+ */
 	INIT_MM_CONTEXT(init_mm)
 };
