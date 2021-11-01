@@ -853,6 +853,24 @@ static void __init map_kernel(pgd_t *pgdp)
  * 회피하기 위해 ARMv8.5 & GCC 9.1에서 PAC(Pointer Authentication Code)를 
  * 만들어 방어한다. 만일 위조된 주소를 사용하면 Branch Target Exception이 
  * 발생한다.
+ *
+ * - BTI: 만약 br/blr insts가 가리키는 주소의 insts가 bti가 아니라면
+ *   Branch Target Exception을 발생시킨다.[1]
+ *
+ *      성공          |       예외
+ * -------------------+-------------------
+ *    app code        |     app code
+ *                    |
+ *   br x9 ------.    |    br x9 ------.
+ *               |    |                |
+ *               |    |                |
+ *  -------------+--  |   -------------+--
+ *     library   |    |      library   |
+ *               |    |                |
+ *               |    |                |
+ *   bti <-------'    |    add <-------'
+ *
+ * [1]: https://developer.arm.com/documentation/102433/0100/Jump-oriented-programming
  */
 	if (arm64_early_this_cpu_has_bti())
 		text_prot = __pgprot_modify(text_prot, PTE_GP, PTE_GP);

@@ -382,7 +382,21 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 
 	arm64_memblock_init();
 
+/*
+ * IAMROOT, 2021.10.31:
+ * - 현재 mmu config 상태
+ *   1) ttbr1_el1 -> init_pg_dir
+ *   2) ttbr0_el1 -> idmap_pg_dir
+ */
+
 	paging_init();
+
+/*
+ * IAMROOT, 2021.10.31:
+ * - 현재 mmu config 상태
+ *   1) ttbr1_el1 -> swapper_pg_dir
+ *   2) ttbr0_el1 -> idmap_pg_dir
+ */
 
 	acpi_table_upgrade();
 
