@@ -132,6 +132,10 @@ enum fixed_addresses {
 	 * Used for kernel page table creation, so unmapped memory may be used
 	 * for tables.
 	 */
+/*
+ * IAMROOT, 2021.11.01:
+ * vabits 48, 4k page 시스템에서 각 PGD/PUD/PMD/PTE는 4k addrs 커버
+ */
 	FIX_PTE,
 	FIX_PMD,
 	FIX_PUD,
