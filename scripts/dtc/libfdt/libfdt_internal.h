@@ -23,11 +23,19 @@ int fdt_check_prop_offset_(const void *fdt, int offset);
 const char *fdt_find_string_(const char *strtab, int tabsize, const char *s);
 int fdt_node_end_offset_(void *fdt, int nodeoffset);
 
+/*
+ * IAMROOT, 2021.11.01:
+ * structure block 의 offset 위치를 구해온다.
+ */
 static inline const void *fdt_offset_ptr_(const void *fdt, int offset)
 {
 	return (const char *)fdt + fdt_off_dt_struct(fdt) + offset;
 }
 
+/*
+ * IAMROOT, 2021.11.01:
+ * fdt_offset_ptr_의 반환인자를 const로 안하기 위한 함수
+ */
 static inline void *fdt_offset_ptr_w_(void *fdt, int offset)
 {
 	return (void *)(uintptr_t)fdt_offset_ptr_(fdt, offset);

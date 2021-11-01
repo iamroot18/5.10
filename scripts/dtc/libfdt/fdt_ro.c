@@ -312,6 +312,13 @@ const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 {
 	const struct fdt_node_header *nh = fdt_offset_ptr_(fdt, nodeoffset);
 	const char *nameptr;
+/*
+ * IAMROOT, 2021.11.01:
+ * 이름은 err지만 nodeoffset이 유효할경우 nodeoffset의 next offset을 반환한다.
+ *
+ * 일단 nh = fdt_offset_ptr_로 이름을 구하고, nodeoffset이 유효한지
+ * 검사하기 위한것.
+ */
 	int err;
 
 	if (((err = fdt_ro_probe_(fdt)) < 0)

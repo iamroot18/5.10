@@ -132,6 +132,11 @@ int fdt_check_header(const void *fdt)
 	return 0;
 }
 
+/*
+ * IAMROOT, 2021.11.01:
+ * structure block + offset의 위치(pointer)를 가지고 올수 있는지 확인하는 함수.
+ * offset위치부터 length만큼을 읽을수 있는지 검사를 수행한다.
+ */
 const void *fdt_offset_ptr(const void *fdt, int offset, unsigned int len)
 {
 	unsigned int uoffset = offset;
@@ -154,6 +159,16 @@ const void *fdt_offset_ptr(const void *fdt, int offset, unsigned int len)
 	return fdt_offset_ptr_(fdt, offset);
 }
 
+/*
+ * IAMROOT, 2021.11.01:
+ * @startoffset structure block start에서 시작되는 offset
+ * @nextoffset 반환되는 tag의 다음번 offset.
+ * @return startoffset의 tag
+ *
+ * startoffset의 tag를 읽어서 반환을 하고 nextoffset에 다음 위치를 저장한다.
+ *
+ * 참고사이트 : https://devicetree-specification.readthedocs.io/en/v0.2/flattened-format.html#sect-fdt-alignment
+ */
 uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 {
 	const fdt32_t *tagp, *lenp;
@@ -166,10 +181,39 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 	if (!can_assume(VALID_DTB) && !tagp)
 		return FDT_END; /* premature end */
 	tag = fdt32_to_cpu(*tagp);
+
+/*
+ * IAMROOT, 2021.11.01:
+ * offset 변수는 다음 next offset 구하기 위한 변수로 사용된다.
+ * next offset은 TAG + FDT_TAGALIGN(str_len(tag_name)) 에 위치하므로
+ * tag name 위치를 먼저 구하기 위해 tag size를 더한다.
+ * 그 주소를 찾기위해 먼저 TAG SIZE를 더한다.
+ *
+ *                  tagp       offset 
+ *                    v (tag size)v
+ * (before structure ) 00 00 00 01 (name. tag align)
+ */
 	offset += FDT_TAGSIZE;
 
 	*nextoffset = -FDT_ERR_BADSTRUCTURE;
 	switch (tag) {
+
+/*
+ * IAMROOT, 2021.11.01:
+ * begin node뒤에는 name이 위치한다. 이경우 tag align을 맞춰줘야된다.
+ *
+ * ex) name이 ab인경우
+ * 00 00 00 01 / 61 62 00 00 / (next ...)
+ *	- tag align을 맞춰줘야되므로 0x00가 2번 들어감.
+ * ex) name이 NULL인경우
+ * 00 00 00 01 / 00 00 00 00 / (next ...)
+ *	- tag align을 맞춰줘야되므로 0x00가 4번 들어감.
+ * ex) name이 abcde인경우
+ * 00 00 00 01 / 61 62 63 64 / 65 00 00 00 / (next ...)
+ *	- tag align을 맞춰줘야되므로 0x00가 3번 들어감.
+ *
+ *	일단 name null값을 찾고 뒤에서 align으로 맞춰준다.
+ */
 	case FDT_BEGIN_NODE:
 		/* skip name */
 		do {
@@ -179,6 +223,21 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 			return FDT_END; /* premature end */
 		break;
 
+/*
+ * IAMROOT, 2021.11.01:
+ * property는 다음과 같은 구조를 가진다.
+ * struct fdt_property {
+ *		fdt32_t tag;
+ *		fdt32_t len;
+ *		fdt32_t nameoff;
+ *		char data[0];
+ * };
+ *
+ * data 위치에서 len길이만큼 더한게 다음 offset이다.
+ * 바로 뒤에서 tag size를 이미 더 해놨기때문에 offset위치는 length 인상태이므로
+ * 다시 -FDT_TAGSIZE를 하고 fdt_property를 더한후 data length값을 더해서
+ * next offset 위치를 구한다.
+ */
 	case FDT_PROP:
 		lenp = fdt_offset_ptr(fdt, offset, sizeof(*lenp));
 		if (!can_assume(VALID_DTB) && !lenp)
@@ -204,13 +263,19 @@ uint32_t fdt_next_tag(const void *fdt, int startoffset, int *nextoffset)
 	if (!fdt_offset_ptr(fdt, startoffset, offset - startoffset))
 		return FDT_END; /* premature end */
 
+/*
+ * IAMROOT, 2021.11.01:
+ * 무조건 tag align이 됬다는 가정하에 nextoffset에 넣을때 align을 맞춰준다.
+ */
 	*nextoffset = FDT_TAGALIGN(offset);
 	return tag;
 }
 
 /*
  * IAMROOT, 2021.10.30:
- * - node의 시작점인지 확인한다.
+ * @return 현재 node(offset)의 next offset
+ *
+ * offset 에서 node가 begin node인지, 유효한지 판단하고 유효하면 next offset을 return 한다.
  */
 int fdt_check_node_offset_(const void *fdt, int offset)
 {
