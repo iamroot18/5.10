@@ -104,6 +104,18 @@ static void *unflatten_dt_alloc(void **mem, unsigned long size,
 	return res;
 }
 
+/*
+ * IAMROOT, 2021.11.03:
+ * @blob dt 시작 주소
+ * @offset 현재 node의 offset 주소
+ * @mem device_node가 할당되있는 주소 의 다음 주소
+ * @np device_node 주소
+ * @nodename node의 name
+ * @dryrun size만 구해오는지(true), 실제 세팅을 하는지에 대한 flag(false)
+ *
+ * 총 property(+1)이 필요한 mem을 할당하고 dryrun이 false일 경우 값까지 설정한다.
+ */
+
 static void populate_properties(const void *blob,
 				int offset,
 				void **mem,
@@ -115,6 +127,11 @@ static void populate_properties(const void *blob,
 	int cur;
 	bool has_name = false;
 
+/*
+ * IAMROOT, 2021.11.03:
+ * struct device_node의 properties가 root가되어, property들은 해당 node에
+ * list 구조로 연결된다.
+ */
 	pprev = &np->properties;
 /*
  * IAMROOT, 2021.10.30:
@@ -130,16 +147,23 @@ static void populate_properties(const void *blob,
  *
  *  property는 device_type, compatible, reg ..등등이 존재하고 그 순서대로
  *  dtb에 있으며 그것을 순서대로 순회할것이다.
+ *
+ *  offset은 node의 시작주소였고, 이 주소부터 시작해 최초로 확인된
+ *  property주소가 cur가 된다.
  */
 	for (cur = fdt_first_property_offset(blob, offset);
 	     cur >= 0;
+/*
+ * IAMROOT, 2021.11.03:
+ * cur 이후로 다음 property의 offset을 구해 다시 cur변수에 넣는다.
+ */
 	     cur = fdt_next_property_offset(blob, cur)) {
 		const __be32 *val;
 		const char *pname;
 		u32 sz;
 /*
  * IAMROOT, 2021.10.30:
- * - curr offset에서 property의 pname과 sz를 구해온다.
+ * - curr offset에서 property의 pname, sz, data(val)를 구해온다.
  */
 		val = fdt_getprop_by_offset(blob, cur, &pname, &sz);
 		if (!val) {
@@ -179,13 +203,49 @@ static void populate_properties(const void *blob,
 		if (!strcmp(pname, "ibm,phandle"))
 			np->phandle = be32_to_cpup(val);
 
+/*
+ * IAMROOT, 2021.11.03:
+ * 
+ * struct device_node
+ * ------------------ (함수 진입시 최초 mem)
+ * struct property pp (pname)
+ * ------------------ <-- mem (위 unflatten_dt_alloc에서 할당되 갱신됨)
+ */
 		pp->name   = (char *)pname;
 		pp->length = sz;
 		pp->value  = (__be32 *)val;
+
+/*
+ * IAMROOT, 2021.11.03:
+ * list 구조로 연결한다.
+ */
 		*pprev     = pp;
 		pprev      = &pp->next;
 	}
 
+/*
+ * IAMROOT, 2021.11.03:
+ * 
+ * struct device_node
+ * ------------------ (함수 진입시 최초 mem)
+ * struct property pp (pname)
+ * struct property pp (pname)
+ * ...
+ * struct property pp (pname)
+ * ------------------ mem
+ * 위와 같이 property 정보들로 데이터가 구성됬을것이다.
+ *
+ * 이중에 pname이 "name"인것이 하나도 없었으면 nodename으로
+ * pname이 "name"인 property를 마지막에 하나 추가한다.
+ *
+ * nodename이 null이거나 제일마지막 @를 마지막으로 잡고, 시작을 처음이나 / 다음
+ * 으로 잡아서 한번 필터링을 한다.
+ *
+ * property data는 필터링된 nodename으로 설정하는것이 확인된다.
+ *
+ * ex) cpu@0 -> cpu
+ * ex) abc/cpu@0 -> cpu
+ */
 	/* With version 0x10 we may not have the name property,
 	 * recreate it here from the unit name if absent
 	 */
@@ -223,6 +283,19 @@ static void populate_properties(const void *blob,
 		*pprev = NULL;
 }
 
+/*
+ * IAMROOT, 2021.11.03:
+ * @blob dt의 시작 주소
+ * @offset node의 offset 주소
+ * @mem[inout] node 정보와 node의 property 구조체 정보가 할당될 주소가
+ *             들어고, 함수가 완료된후에는 정보가 할당된 마지막 주소가 설정된다.
+ * @dad 현재 device node의 parent 
+ * @pnp[out] 설정이 완료된 device node pointer
+ * @dryrun memory 계산만 수행하는지에 대한 flag
+ * @return result
+ *
+ * node에 필요한 memory를 계산해 mem을 위치시키고, node pointer를 설정하다.
+ */
 static bool populate_node(const void *blob,
 			  int offset,
 			  void **mem,
@@ -376,8 +449,16 @@ static int unflatten_dt_nodes(const void *blob,
 				   &nps[depth+1], dryrun))
 			return mem - base;
 
+/*
+ * IAMROOT, 2021.11.03:
+ * 마지막 node 주소를 저장한다.
+ */
 		if (!dryrun && nodepp && !*nodepp)
 			*nodepp = nps[depth+1];
+/*
+ * IAMROOT, 2021.11.03:
+ * root가 없는경우는 최초의 경우가 root이므로 그 정보를 설정한다.
+ */
 		if (!dryrun && !root)
 			root = nps[depth+1];
 	}

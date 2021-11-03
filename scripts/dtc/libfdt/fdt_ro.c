@@ -198,6 +198,17 @@ int fdt_num_mem_rsv(const void *fdt)
 	return -FDT_ERR_TRUNCATED;
 }
 
+/*
+ * IAMROOT, 2021.11.03:
+ * @fdt dt의 시작주소
+ * @offset property의 offset 주소
+ * @return offset이 proeprty일경우 offset retruen,
+ *         end일 경우 FDT_END, error일 경우 error return
+ *
+ * offset에서 시작해 property를 만나는 최초의 offset을 return한다.
+ * FDT_NOP인 경우만 skip하며 FDT_END나 그 외를 만나면 그에 해당하는 값을
+ * return 한다.
+ */
 static int nextprop_(const void *fdt, int offset)
 {
 	uint32_t tag;
@@ -307,6 +318,11 @@ int fdt_path_offset(const void *fdt, const char *path)
  *	...
  *
  * 일때 cpu라는 string을 가져온다.
+ *
+ * @fdt dt의 시작주소
+ * @nodeoffset 현재 name을 get하고자 하는 node가 위치하는 offset
+ * @len 반환되는 name의 strlen(name). error일경우 error값이 set된다.
+ * @return nodeoffset의 name
  */
 const char *fdt_get_name(const void *fdt, int nodeoffset, int *len)
 {
@@ -366,9 +382,17 @@ int fdt_first_property_offset(const void *fdt, int nodeoffset)
 {
 	int offset;
 
+/*
+ * IAMROOT, 2021.11.03:
+ * next offset을 구해온다.
+ */
 	if ((offset = fdt_check_node_offset_(fdt, nodeoffset)) < 0)
 		return offset;
 
+/*
+ * IAMROOT, 2021.11.03:
+ * 위에서 구해온 offset부터 시작해 property를 찾아 offset을 return한다.
+ */
 	return nextprop_(fdt, offset);
 }
 

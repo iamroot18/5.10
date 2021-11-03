@@ -85,8 +85,17 @@ struct device_node {
  */
 	struct fwnode_handle fwnode;
 
+/*
+ * IAMROOT, 2021.11.03:
+ * 해당 node가 가지는 property들도 list구조를 가지며, root가 되는 property가
+ * 위치한다.
+ */
 	struct	property *properties;
 	struct	property *deadprops;	/* removed properties */
+/*
+ * IAMROOT, 2021.11.03:
+ * device node끼리는 tree 구조를 가진다.
+ */
 	struct	device_node *parent;
 	struct	device_node *child;
 	struct	device_node *sibling;
