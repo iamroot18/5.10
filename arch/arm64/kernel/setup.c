@@ -386,16 +386,14 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
  * IAMROOT, 2021.10.31:
  * - 현재 mmu config 상태
  *   1) ttbr1_el1 -> init_pg_dir
- *   2) ttbr0_el1 -> idmap_pg_dir
+ *   2) ttbr0_el1 -> empty_zero_page
  */
-
 	paging_init();
-
 /*
  * IAMROOT, 2021.10.31:
  * - 현재 mmu config 상태
  *   1) ttbr1_el1 -> swapper_pg_dir
- *   2) ttbr0_el1 -> idmap_pg_dir
+ *   2) ttbr0_el1 -> empty_zero_page
  */
 
 	acpi_table_upgrade();

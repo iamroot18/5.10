@@ -156,7 +156,6 @@ static inline void cpu_uninstall_idmap(void)
  * IAMROOT, 2021.10.16:
  * - cpu_replace_ttbr1 에서 호출되는
  * - kernel에서 kernel로 변경을 하는건 의미가 없으므로 mm != init_mm이 있다.
- *   
  */
 	if (mm != &init_mm && !system_uses_ttbr0_pan())
 		cpu_switch_mm(mm->pgd, mm);
