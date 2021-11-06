@@ -32,9 +32,12 @@
 #include "of_private.h"
 
 LIST_HEAD(aliases_lookup);
-
 struct device_node *of_root;
 EXPORT_SYMBOL(of_root);
+/*
+ * IAMROOT, 2021.11.06:
+ * - dtb를 load가 끝나고 of_alias_scan에서 set된다.
+ */
 struct device_node *of_chosen;
 struct device_node *of_aliases;
 struct device_node *of_stdout;
@@ -86,6 +89,10 @@ static bool __of_node_is_type(const struct device_node *np, const char *type)
 	return np && match && type && !strcmp(match, type);
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - address cells를 가져온다.
+ */
 int of_bus_n_addr_cells(struct device_node *np)
 {
 	u32 cells;
@@ -98,6 +105,10 @@ int of_bus_n_addr_cells(struct device_node *np)
 	return OF_ROOT_NODE_ADDR_CELLS_DEFAULT;
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - 부모노드가 있으면 부모노드를 우선하여 address cells를 가져온다.
+ */
 int of_n_addr_cells(struct device_node *np)
 {
 	if (np->parent)
@@ -107,6 +118,10 @@ int of_n_addr_cells(struct device_node *np)
 }
 EXPORT_SYMBOL(of_n_addr_cells);
 
+/*
+ * IAMROOT, 2021.11.06:
+ * size cells를 가져온다.
+ */
 int of_bus_n_size_cells(struct device_node *np)
 {
 	u32 cells;
@@ -119,6 +134,10 @@ int of_bus_n_size_cells(struct device_node *np)
 	return OF_ROOT_NODE_SIZE_CELLS_DEFAULT;
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * 부모 node가 있으면 부모 node를 우선하여 size cells를 가져온다.
+ */
 int of_n_size_cells(struct device_node *np)
 {
 	if (np->parent)
@@ -656,6 +675,10 @@ EXPORT_SYMBOL(of_device_is_big_endian);
  *
  *	Returns a node pointer with refcount incremented, use
  *	of_node_put() on it when done.
+ */
+/*
+ * IAMROOT, 2021.11.06:
+ * - 부모 node를 가져온다.
  */
 struct device_node *of_get_parent(const struct device_node *node)
 {
@@ -1931,7 +1954,10 @@ int of_update_property(struct device_node *np, struct property *newprop)
 
 	return rc;
 }
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - 후에 aliases만 빠르게 스캔할 목적으로 aliases_lookup에 넣는것이 보여진다.
+ */
 static void of_alias_add(struct alias_prop *ap, struct device_node *np,
 			 int id, const char *stem, int stem_len)
 {
@@ -1953,6 +1979,10 @@ static void of_alias_add(struct alias_prop *ap, struct device_node *np,
  *
  * @dt_alloc:	An allocator that provides a virtual address to memory
  *		for storing the resulting tree
+ */
+/*
+ * IAMROOT, 2021.11.06:
+ * - aliases node를 참고해 aliases_lookup에 등록한다.
  */
 void of_alias_scan(void * (*dt_alloc)(u64 size, u64 align))
 {
@@ -1991,7 +2021,21 @@ void of_alias_scan(void * (*dt_alloc)(u64 size, u64 align))
 		    !strcmp(pp->name, "phandle") ||
 		    !strcmp(pp->name, "linux,phandle"))
 			continue;
-
+/*
+ * IAMROOT, 2021.11.06:
+ * -aliases node의 예
+ *
+ * aliases {
+ *	serial0 = &uart3;
+ *	serial1 = &uart0;
+ *	serial2 = &uart1;
+ *	serial3 = &uart2;
+ * };
+ *
+ * 위와 같은 구조로 되어있고, value는 node의 이름이므로, 그 node가 존재하는지 찾는것. 그리고
+ * 번호를 제외한 name(node 명)의 길이를 len으로 구하고, 번호를 id에 저장한다.
+ * dt_alloc으로 메모리를 할당하고 해당 정보들을 설정한다.
+ */
 		np = of_find_node_by_path(pp->value);
 		if (!np)
 			continue;

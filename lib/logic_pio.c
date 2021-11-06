@@ -17,6 +17,10 @@
 #include <linux/slab.h>
 
 /* The unique hardware address list */
+/*
+ * IAMROOT, 2021.11.06:
+ * - pci io resource가 등록된다.
+ */
 static LIST_HEAD(io_range_list);
 static DEFINE_MUTEX(io_range_mutex);
 
@@ -121,6 +125,10 @@ void logic_pio_unregister_range(struct logic_pio_hwaddr *range)
  * Returns pointer to node on success, NULL otherwise.
  *
  * Traverse the io_range_list to find the registered node for @fwnode.
+ */
+/*
+ * IAMROOT, 2021.11.06:
+ * - iteration을 하여 fwnode와 동일한것을 찾는다.
  */
 struct logic_pio_hwaddr *find_io_range_by_fwnode(struct fwnode_handle *fwnode)
 {

@@ -19,6 +19,11 @@
  * The structure represents one alias property of 'aliases' node as
  * an entry in aliases_lookup list.
  */
+/*
+ * IAMROOT, 2021.11.06:
+ * - stem은 aliase의 node 이름. 구조체 확장으로 사용되기 위해
+ *   아래와 같이 선언 되있음.
+ */
 struct alias_prop {
 	struct list_head link;
 	const char *alias;

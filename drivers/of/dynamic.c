@@ -42,6 +42,10 @@ EXPORT_SYMBOL(of_node_get);
  * @node:	Node to dec refcount, NULL is supported to simplify writing of
  *		callers
  */
+/*
+ * IAMROOT, 2021.11.06:
+ * - 참초 count put. of_node_get과 한쌍.
+ */
 void of_node_put(struct device_node *node)
 {
 	if (node)

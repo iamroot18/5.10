@@ -670,7 +670,7 @@
 			compatible = "brcm,iproc-ns2-sata-phy";
 			reg = <0x663f0100 0x1f00>,
 			      <0x663f004c 0x10>;
-			reg-names = "phy", "phy-ctrl";
+	 		reg-names = "phy", "phy-ctrl";
 			#address-cells = <1>;
 			#size-cells = <0>;
 

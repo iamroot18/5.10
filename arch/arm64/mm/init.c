@@ -585,7 +585,14 @@ void __init arm64_memblock_init(void)
 
 	dma_contiguous_reserve(arm64_dma32_phys_limit);
 }
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - ex) 0x8000_0000 ~ 0xffff_ffff(2GB)
+ *   memblock_start_of_DRAM = 0x8000_0000
+ *   memblock_end_of_DRAM = 0x1_0000_0000
+ *   min =  0x8_0000
+ *   max = 0x10_0000
+ */
 void __init bootmem_init(void)
 {
 	unsigned long min, max;

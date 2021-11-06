@@ -25,6 +25,10 @@ static u64 patterns[] __initdata = {
 	0x7a6c7258554e494cULL, /* yeah ;-) */
 };
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - 해당 pattern에 대해서 bad block이 발생했다는것을 알리고 해당영역을 reserve 시킨다.
+ */
 static void __init reserve_bad_mem(u64 pattern, phys_addr_t start_bad, phys_addr_t end_bad)
 {
 	pr_info("  %016llx bad mem addr %pa - %pa reserved\n",
@@ -32,6 +36,10 @@ static void __init reserve_bad_mem(u64 pattern, phys_addr_t start_bad, phys_addr
 	memblock_reserve(start_bad, end_bad - start_bad);
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - pattern을 전범위에 넣고, 비교해서 bad memory가 찾아지면 reserve까지 시킨다.
+ */
 static void __init memtest(u64 pattern, phys_addr_t start_phys, phys_addr_t size)
 {
 	u64 *p, *start, *end;
@@ -67,7 +75,10 @@ static void __init do_one_pass(u64 pattern, phys_addr_t start, phys_addr_t end)
 {
 	u64 i;
 	phys_addr_t this_start, this_end;
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - 전체 memory에 대해서 flag가 없는 block들에 한해 memtest를 진행한다.
+ */
 	for_each_free_mem_range(i, NUMA_NO_NODE, MEMBLOCK_NONE, &this_start,
 				&this_end, NULL) {
 		this_start = clamp(this_start, start, end);
@@ -96,7 +107,11 @@ static int __init parse_memtest(char *arg)
 }
 
 early_param("memtest", parse_memtest);
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - kernel level에서의 memtest. CONFIG_MEMTEST를 바라보며, config가 존재해도
+ *   early param에서 횟수가 set이 안되있으면 실행을 안한다.
+ */
 void __init early_memtest(phys_addr_t start, phys_addr_t end)
 {
 	unsigned int i;

@@ -114,6 +114,14 @@ static void *unflatten_dt_alloc(void **mem, unsigned long size,
  * @dryrun size만 구해오는지(true), 실제 세팅을 하는지에 대한 flag(false)
  *
  * 총 property(+1)이 필요한 mem을 할당하고 dryrun이 false일 경우 값까지 설정한다.
+ *
+ * --------
+ * fdt block 구조
+ *
+ * 1) struct fdt_header
+ * 2) memory reservation block
+ * 3) structure block
+ * 4) string block
  */
 
 static void populate_properties(const void *blob,
@@ -190,6 +198,10 @@ static void populate_properties(const void *blob,
 		 * appear and have different values, things
 		 * will get weird. Don't do that.
 		 */
+/*
+ * IAMROOT, 2021.11.06:
+ * - phandle 속성은 각 node마다 compile time에 일련번호로 만들어진다.
+ */
 		if (!strcmp(pname, "phandle") ||
 		    !strcmp(pname, "linux,phandle")) {
 			if (!np->phandle)
@@ -206,6 +218,9 @@ static void populate_properties(const void *blob,
 /*
  * IAMROOT, 2021.11.03:
  * 
+ * -mem 위 위치상태
+ *
+ * ----------------- <-- mem
  * struct device_node
  * ------------------ (함수 진입시 최초 mem)
  * struct property pp (pname)
@@ -217,7 +232,7 @@ static void populate_properties(const void *blob,
 
 /*
  * IAMROOT, 2021.11.03:
- * list 구조로 연결한다.
+ * property 정보는 list 구조로 연결한다.
  */
 		*pprev     = pp;
 		pprev      = &pp->next;
@@ -245,6 +260,10 @@ static void populate_properties(const void *blob,
  *
  * ex) cpu@0 -> cpu
  * ex) abc/cpu@0 -> cpu
+ *
+ * - 보통은 name, phandle property가 사용자가 입력하지 않는데,
+ *   phandle은 compile타임에 만들어지고, name은 아래와 같이 없다해도 node name으로 run time에
+ *   만들어 property가 dts에 있는 것에비해 2개 더 추가된것처럼 보인다.
  */
 	/* With version 0x10 we may not have the name property,
 	 * recreate it here from the unit name if absent
@@ -336,6 +355,16 @@ static bool populate_node(const void *blob,
 /*
  * IAMROOT, 2021.10.30:
  * - 계층구조를 만든다.(부모 node에 child를 node를 연결 및 sibling 노드 연결)
+ *
+ *   node A
+ *	node A1
+ *	node A2
+ *	node A3
+ *
+ * A
+ * |
+ * A3 -> A2 -> A1
+ *                            
  */
 		if (dad != NULL) {
 			np->parent = dad;
@@ -354,7 +383,21 @@ static bool populate_node(const void *blob,
 	*pnp = np;
 	return true;
 }
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - child node의 순서를 뒤집는다. dts에서 입력된 node들을 최초에 불러왔을땐 역순으로
+ *   만들어지기 때문에 여기서 다시 위치를 조정하는것.
+ *
+ * A
+ * |
+ * A3 -> A2 -> A1
+ * 
+ * (reverser)
+ *
+ * A
+ * |
+ * A1 -> A2 -> A3
+ */
 static void reverse_nodes(struct device_node *parent)
 {
 	struct device_node *child, *next;
@@ -451,7 +494,7 @@ static int unflatten_dt_nodes(const void *blob,
 
 /*
  * IAMROOT, 2021.11.03:
- * 마지막 node 주소를 저장한다.
+ * node 주소를 저장한다.
  */
 		if (!dryrun && nodepp && !*nodepp)
 			*nodepp = nps[depth+1];
@@ -494,6 +537,10 @@ static int unflatten_dt_nodes(const void *blob,
  *
  * Returns NULL on failure or the memory chunk containing the unflattened
  * device tree on success.
+ */
+/*
+ * IAMROOT, 2021.11.06:
+ * - fdt를 unflatten하여 memory에 할당한다.
  */
 void *__unflatten_device_tree(const void *blob,
 			      struct device_node *dad,
@@ -550,6 +597,8 @@ void *__unflatten_device_tree(const void *blob,
 /*
  * IAMROOT, 2021.10.30:
  * - 실제 unflatten하기 위해 다시한번 호출한다.
+ *   
+ * - 위에서 0xdeadbeef를 끝에 넣어서 혹시 size가 안맞는지 검사하는것이 보인다.
  */
 	/* Second pass, do actual unflattening */
 	unflatten_dt_nodes(blob, mem, dad, mynodes);

@@ -2897,6 +2897,10 @@ static void * __init dt_alloc_memory(u64 size, u64 align)
  *
  * Have to stop before resolving phandles, because that uses kmalloc.
  */
+/*
+ * IAMROOT, 2021.11.06:
+ * - PASS
+ */
 void __init unittest_unflatten_overlay_base(void)
 {
 	struct overlay_info *info;

@@ -20,6 +20,23 @@
  * Even though we connect cpus to numa domains later in SMP
  * init, we need to know the node ids now for all cpus.
 */
+/*
+ * IAMROOT, 2021.11.06:
+ * device node를 돌면서 cpu node를 찾아서 numa_nodes_parsed를 set한다
+ *
+ * - dt hip07.dtsi 참고
+ * cpu0: cpu@10000 {
+ *	device_type = "cpu";
+ *	compatible = "arm,cortex-a72";
+ *	reg = <0x10000>;
+ *	enable-method = "psci";
+ *	next-level-cache = <&cluster0_l2>;
+ *	numa-node-id = <0>;
+ * };
+ *
+ * 총4개의 node를 가지고 있으며 1개 node당 16개의 cpu를 가진것이 확인된다.
+ * 총 cpu숫자는 64개
+ */
 static void __init of_numa_parse_cpu_nodes(void)
 {
 	u32 nid;
@@ -39,6 +56,18 @@ static void __init of_numa_parse_cpu_nodes(void)
 	}
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - device node에서 memory node를 순회해 numa-node-id, address를 가져온다.
+ *   그리고 해당 address 범위에 numa node id를 설정한다.
+ *
+ * ex) node 예
+ * memory@0 {
+ *	device_type = "memory";
+ *	reg = <0x0 0x00000000 0x0 0x40000000>;
+ *	numa-node-id = <0>;
+ * };
+ */
 static int __init of_numa_parse_memory_nodes(void)
 {
 	struct device_node *np = NULL;

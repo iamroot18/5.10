@@ -96,7 +96,11 @@
 struct pglist_data __refdata contig_page_data;
 EXPORT_SYMBOL(contig_page_data);
 #endif
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - bootmem_init 에서 설정된다.
+ * - max_pfn을 경우 제일 마지막 frame을 가리키는게 아니라, 마지막의 다음을 가리키고 있다.
+ */
 unsigned long max_low_pfn;
 unsigned long min_low_pfn;
 unsigned long max_pfn;

@@ -142,6 +142,10 @@ static inline void __nodes_setall(nodemask_t *dstp, unsigned int nbits)
 	bitmap_fill(dstp->bits, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - node bitmap clear
+ */
 #define nodes_clear(dst) __nodes_clear(&(dst), MAX_NUMNODES)
 static inline void __nodes_clear(nodemask_t *dstp, unsigned int nbits)
 {
@@ -387,6 +391,17 @@ static inline void __nodes_fold(nodemask_t *dstp, const nodemask_t *origp,
 
 /*
  * Bitmasks that are kept for all the nodes.
+ */
+/*
+ * IAMROOT, 2021.11.06:
+ * - N_POSSIBLE : node를 할당할수있는 자리
+ * - N_ONLINE : node add를 할때마다 Online이 됨.
+ * - N_NORMAL_MEMORY : 해당 node에 normal zone이 들어갔는지 여부.
+ *                     arm6는 전부 normal.
+ * - N_HIGH_MEMORY : high mem zone이 들어갔는지 여부
+ * - N_MEMORY : 해당 node에 memory가 있는지 여부. 안들어가 있는
+ *              것을 memoryless node라고 부른다.
+ * - N_CPU : 해당 node에 CPU가 있는지 여부
  */
 enum node_states {
 	N_POSSIBLE,		/* The node could become online at some point */

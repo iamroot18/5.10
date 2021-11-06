@@ -57,7 +57,11 @@ struct of_bus {
 /*
  * Default translator (generic bus)
  */
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - address, size에서 사용하는 cell수를 가져온다.
+ *   부모 node가 존재한다면 부모노드 값이 우선이될것이다.
+ */
 static void of_bus_default_count_cells(struct device_node *dev,
 				       int *addrc, int *sizec)
 {
@@ -67,6 +71,38 @@ static void of_bus_default_count_cells(struct device_node *dev,
 		*sizec = of_n_size_cells(dev);
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * @na address cell count
+ * @ns size cell count
+ * @pna parent address cell count
+ *
+ * cp - range 부터 na개수만큼 읽어온다.
+ * s - 가져온 size
+ *
+ * ranges = < (src addr) (dst addr) (size) >
+ *
+ * - ex)
+ *
+ *
+ * soc {
+ *	#address-cells = <1>;
+ *	#size-cells = <1>;
+ *	ranges = <0x7e000000 0x3f000000 0x1000000>,
+ *	<0x40000000 0x40000000 0x00001000>;
+ *
+ *	sample {
+ *		#address-cells = <1>;
+ *		#size-cells = <1>;
+ *	}
+ * }
+ *
+ * na = 1, ns = 1, pna = 1 이렇게 되며
+ * in address가 예를들어 0x7e001000 로 들어오면 0x3f001000로 변환할
+ * 된다.
+ *
+ * 이 함수는 변환전 과 변환후의 address offset을 구한다.
+ */
 static u64 of_bus_default_map(__be32 *addr, const __be32 *range,
 		int na, int ns, int pna)
 {
@@ -369,7 +405,12 @@ static unsigned int of_bus_isa_get_flags(const __be32 *addr)
 /*
  * Array of bus specific translators
  */
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - default는 platform bus(arm64는 AMBA bus)를 의미
+ *   AMBA bus는 하드웨어적으로 초기화, 프로토콜등이 다 동작하기 때문에
+ *   kernel에서 해줄게없다.
+ */
 static struct of_bus of_busses[] = {
 #ifdef CONFIG_PCI
 	/* PCI */
@@ -407,6 +448,12 @@ static struct of_bus of_busses[] = {
 	},
 };
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - device라 함은 결국 어떤 bus를 사용하는데, 무슨 bus를 쓰는지 찾는역할.
+ * - pci -> isa -> default순으로 검사하며 pci, isa도 아니면 default bus가
+ *   된다.
+ */
 static struct of_bus *of_match_bus(struct device_node *np)
 {
 	int i;
@@ -466,12 +513,22 @@ static int of_translate_one(struct device_node *parent, struct of_bus *bus,
 	 * This quirk also applies for 'dma-ranges' which frequently exist in
 	 * child nodes without 'dma-ranges' in the parent nodes. --RobH
 	 */
+/*
+ * IAMROOT, 2021.11.06:
+ * - rprop 는 ranges 같은 주소변환 속성명.
+ *
+ */
 	ranges = of_get_property(parent, rprop, &rlen);
 	if (ranges == NULL && !of_empty_ranges_quirk(parent) &&
 	    strcmp(rprop, "dma-ranges")) {
 		pr_debug("no ranges; cannot translate\n");
 		return 1;
 	}
+/*
+ * IAMROOT, 2021.11.06:
+ * - ranges를 못찾거나 rlen이 0이라면 address에 있는 읽은 offset값을 사용하고
+ *   addr을 초기화한다. (변환할 필요가 없다는것.)
+ */
 	if (ranges == NULL || rlen == 0) {
 		offset = of_read_number(addr, na);
 		memset(addr, 0, pna * 4);
@@ -484,6 +541,11 @@ static int of_translate_one(struct device_node *parent, struct of_bus *bus,
 	/* Now walk through the ranges */
 	rlen /= 4;
 	rone = na + pna + ns;
+/*
+ * IAMROOT, 2021.11.06:
+ * - 주어진 범위안에 있으면 해당 범위안에 들어온다면 맞다면
+ *   변환전/후의 주소 차이를 offset에 구해온다.
+ */
 	for (; rlen >= rone; rlen -= rone, ranges += rone) {
 		offset = bus->map(addr, ranges, na, ns, pna);
 		if (offset != OF_BAD_ADDR)
@@ -500,6 +562,10 @@ static int of_translate_one(struct device_node *parent, struct of_bus *bus,
 	pr_debug("with offset: %llx\n", (unsigned long long)offset);
 
 	/* Translate it into parent bus space */
+/*
+ * IAMROOT, 2021.11.06:
+ * - 위에서 구한 offset을 사용해 실제 변환을 수행한다.
+ */
 	return pbus->translate(addr, offset, pna);
 }
 
@@ -553,6 +619,10 @@ static u64 __of_translate_address(struct device_node *dev,
 	of_dump_addr("translating address:", addr, na);
 
 	/* Translate */
+/*
+ * IAMROOT, 2021.11.06:
+ * - address 변환을 root까지 따라 올라가면서 수행한다.
+ */
 	for (;;) {
 		struct logic_pio_hwaddr *iorange;
 
@@ -572,6 +642,10 @@ static u64 __of_translate_address(struct device_node *dev,
 		 * For indirectIO device which has no ranges property, get
 		 * the address from reg directly.
 		 */
+/*
+ * IAMROOT, 2021.11.06:
+ * - io range list에서 해당 firmware node를 찾는다.
+ */
 		iorange = find_io_range_by_fwnode(&dev->fwnode);
 		if (iorange && (iorange->flags != LOGIC_PIO_CPU_MMIO)) {
 			result = of_read_number(addr + 1, na - 1);
@@ -597,6 +671,23 @@ static u64 __of_translate_address(struct device_node *dev,
 			break;
 
 		/* Complete the move up one level */
+/*
+ * IAMROOT, 2021.11.06:
+ * soc {
+ *	#address-cells = <1>;
+ *	#size-cells = <1>;
+ *	ranges = <0x7e000000 0x3f000000 0x1000000>,
+ *		<0x40000000 0x40000000 0x00001000>;
+ *
+ *	sample {
+ *		reg = <...>
+ *	}
+ * }
+ *
+ * 최초의 루틴에선 na == pna, ns == pns일 것이다.
+ * 그 후로도 계속 translation이 일어난다면
+ * na = pna, ns = pns로 갱신되고, pna, pns는 parent가 된다.
+ */
 		na = pna;
 		ns = pns;
 		bus = pbus;
@@ -610,6 +701,10 @@ static u64 __of_translate_address(struct device_node *dev,
 	return result;
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - address를 ranges의 정의에 따라 변환한다.
+ */
 u64 of_translate_address(struct device_node *dev, const __be32 *in_addr)
 {
 	struct device_node *host;
@@ -670,7 +765,10 @@ u64 of_translate_dma_address(struct device_node *dev, const __be32 *in_addr)
 	return ret;
 }
 EXPORT_SYMBOL(of_translate_dma_address);
-
+/*
+ * IAMROOT, 2021.11.06:
+ * address, size, flag를 가져온다.
+ */
 const __be32 *of_get_address(struct device_node *dev, int index, u64 *size,
 		    unsigned int *flags)
 {
@@ -696,6 +794,15 @@ const __be32 *of_get_address(struct device_node *dev, int index, u64 *size,
 		return NULL;
 	psize /= 4;
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - index에 해당하는 cell을 읽어온다.
+ *
+ * 예를들어 
+ * reg = <0x000000000 0x80000000 0x00000000 0x40000000>;
+ *
+ * 이것은 index 0의 address 0x80000000, size 0x40000000
+ */
 	onesize = na + ns;
 	for (i = 0; psize >= onesize; psize -= onesize, prop += onesize, i++)
 		if (i == index) {
@@ -830,6 +937,10 @@ static u64 of_translate_ioport(struct device_node *dev, const __be32 *in_addr,
 	return port;
 }
 
+/*
+ * IAMROOT, 2021.11.06:
+ * - address를 resource형태로 변환한다.
+ */
 static int __of_address_to_resource(struct device_node *dev,
 		const __be32 *addrp, u64 size, unsigned int flags,
 		const char *name, struct resource *r)
@@ -862,6 +973,10 @@ static int __of_address_to_resource(struct device_node *dev,
  * the physical address can't be internally converted to an IO token with
  * pci_address_to_pio(), that is because it's either called too early or it
  * can't be matched to any host bridge IO space
+ */
+/*
+ * IAMROOT, 2021.11.06:
+ * - reg와 reg name을 읽어 resource형태로 변환한다.
  */
 int of_address_to_resource(struct device_node *dev, int index,
 			   struct resource *r)

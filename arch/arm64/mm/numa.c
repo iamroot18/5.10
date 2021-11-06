@@ -18,11 +18,22 @@
 
 struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
 EXPORT_SYMBOL(node_data);
+/*
+ * IAMROOT, 2021.11.06:
+ * - 일단 parsing이 된 node들을 저장해놓는 용도.
+ */
 nodemask_t numa_nodes_parsed __initdata;
 static int cpu_to_node_map[NR_CPUS] = { [0 ... NR_CPUS-1] = NUMA_NO_NODE };
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - numa_alloc_distance에서 설정된다.
+ */
 static int numa_distance_cnt;
 static u8 *numa_distance;
+/*
+ * IAMROOT, 2021.11.06:
+ * - default는 false이므로 numa는 on인 상태가 default
+ */
 bool numa_off;
 
 static __init int numa_parse_early_param(char *opt)
@@ -201,6 +212,10 @@ void __init setup_per_cpu_areas(void)
  * RETURNS:
  * 0 on success, -errno on failure.
  */
+/*
+ * IAMROOT, 2021.11.06:
+ * - 해당 범위의 memblock을 nid로 설정한다.
+ */
 int __init numa_add_memblk(int nid, u64 start, u64 end)
 {
 	int ret;
@@ -273,12 +288,21 @@ void __init numa_free_distance(void)
 /*
  * Create a new NUMA distance table.
  */
+/*
+ * IAMROOT, 2021.11.06:
+ * - node_distance의 memory를 할당하고 초기값을 설정한다.
+ */
 static int __init numa_alloc_distance(void)
 {
 	size_t size;
 	u64 phys;
 	int i, j;
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - nr_node_ids mm/page_alloc.c에 위치
+ *   compile time에는 넣을수있는 최대값이 들어가있고, runtime에 dt에 따라서 설정될것.
+ * - numa node간에 길이 산출을 위한 memory할당.
+ */
 	size = nr_node_ids * nr_node_ids * sizeof(numa_distance[0]);
 	phys = memblock_find_in_range(0, PFN_PHYS(max_pfn),
 				      size, PAGE_SIZE);

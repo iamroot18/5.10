@@ -14,7 +14,10 @@ typedef struct {
 	u64 val;
 } pfn_t;
 #endif
-
+/*
+ * IAMROOT, 2021.11.06:
+ * - PFN(Page Frame Number)
+ */
 #define PFN_ALIGN(x)	(((unsigned long)(x) + (PAGE_SIZE - 1)) & PAGE_MASK)
 #define PFN_UP(x)	(((x) + PAGE_SIZE-1) >> PAGE_SHIFT)
 #define PFN_DOWN(x)	((x) >> PAGE_SHIFT)
