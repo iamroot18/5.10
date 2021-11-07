@@ -16,6 +16,14 @@
 #include <asm/cmpxchg.h>
 #include <asm/lse.h>
 
+/*
+ * IAMROOT, 2021.11.08:
+ * ex)
+ *   atomic_add
+ *   -> arch_atomic_add
+ *   -> __lse_ll_sc_body
+ *   -> __lse_atomic_add or __ll_sc_atomic_add
+ */
 #define ATOMIC_OP(op)							\
 static inline void arch_##op(int i, atomic_t *v)			\
 {									\

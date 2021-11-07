@@ -26,6 +26,16 @@ static inline void __lse_atomic_##op(int i, atomic_t *v)			\
 	: "r" (v));							\
 }
 
+/*
+ * IAMROOT, 2021.11.07:
+ * stclr: Atomic bit clear on word or doubleword in memory, without return.
+ * stset: Atomic bit set on word or doubleword in memory, without return.
+ * steor: Atomic exclusive OR on word or doubleword in memory, without return.
+ * stadd: Atomic add on word or doubleword in memory, without return.
+ *
+ * From Arm Compiler armasm User Guide.
+ * https://developer.arm.com/documentation/100069/latest.
+ */
 ATOMIC_OP(andnot, stclr)
 ATOMIC_OP(or, stset)
 ATOMIC_OP(xor, steor)
@@ -35,8 +45,25 @@ ATOMIC_OP(add, stadd)
 /*
  * IAMROOT, 2021.09.18:
  * - ex. ATOMIC_FETCH_OPS(add, ldadd)
- *   asm instruction이 mb에 따라 다음과 같이 된다. ((없음), a, l, al)
+ *   asm instruction이 mb(memory barrier)에 따라 다음과 같이 된다.
+ *   ((없음), a, l, al) (a: acquire, l: release)
  *   ldadd, ldadda, ldaddl, ldaddal
+ *
+ * - ldadd Xs, Xt, [Xn/SP]
+ *     : Atomic add on word or doubleword in memory.
+ *       It atomically loads a 32-bit word from memory, adds the value
+ *       held in a register to it, and stores the result back to memory.
+ *       The value initially loaded from memory is returned in the destination register.
+ *       - Xs: 레지스터 (메모리에 들어있는 값에 더할 값)
+ *       - Xt: 레지스터 (더하기 전에 메모리에 들어있는 값)
+ *       - Xn/SP: 메모리 주소 (Base register or Stack Pointer)
+ *   (위의 stadd랑 비슷하지만 stadd에는 Xt가 없다.)
+ *
+ * - fetch는 old값을 return 한다.
+ *
+ * - __lse_atomic_fetch_##op##name 설명
+ *   - v->counter에 atomic하게 i를 op한다.
+ *   - v->counter의 old value를 로컬 변수 i에 덮어쓰고 return한다.
  */
 #define ATOMIC_FETCH_OP(name, mb, op, asm_op, cl...)			\
 static inline int __lse_atomic_fetch_##op##name(int i, atomic_t *v)	\
@@ -65,6 +92,15 @@ ATOMIC_FETCH_OPS(add, ldadd)
 #undef ATOMIC_FETCH_OP
 #undef ATOMIC_FETCH_OPS
 
+/*
+ * IAMROOT, 2021.11.07:
+ * - return은 new값을 return 한다.
+ *
+ * __lse_atomic_add_return##name 설명
+ *   - v->counter에 atomic하게 i를 add한다.
+ *   - v->counter의 old value를 로컬 변수 tmp에 write하고
+ *     tmp에 i를 add한 후 tmp를 return한다.
+ */
 #define ATOMIC_OP_ADD_RETURN(name, mb, cl...)				\
 static inline int __lse_atomic_add_return##name(int i, atomic_t *v)	\
 {									\
@@ -88,6 +124,14 @@ ATOMIC_OP_ADD_RETURN(        , al, "memory")
 
 #undef ATOMIC_OP_ADD_RETURN
 
+/*
+ * IAMROOT, 2021.11.07:
+ * mvn: Bitwise NOT (vector)
+ *
+ * __lse_atomic_and 설명
+ * - i에 not을 취한다. (0->1, 1->0)
+ * - i를 가지고 v->counter를 clear한다. (i의 bit가 1이면 v->counter의 bit는 0이 된다.)
+ */
 static inline void __lse_atomic_and(int i, atomic_t *v)
 {
 	asm volatile(
@@ -98,6 +142,12 @@ static inline void __lse_atomic_and(int i, atomic_t *v)
 	: "r" (v));
 }
 
+/*
+ * IAMROOT, 2021.11.08:
+ * - i에 not을 취한다.
+ * - i를 가지고 v->counter를 clear한다. (i의 bit가 1이면 v->counter의 bit는 0이 된다.)
+ * - i에 v->counter의 old값을 write한다.
+ */
 #define ATOMIC_FETCH_OP_AND(name, mb, cl...)				\
 static inline int __lse_atomic_fetch_and##name(int i, atomic_t *v)	\
 {									\
@@ -119,6 +169,15 @@ ATOMIC_FETCH_OP_AND(        , al, "memory")
 
 #undef ATOMIC_FETCH_OP_AND
 
+/*
+ * IAMROOT, 2021.11.08:
+ * - neg: negate (vector)
+ *     - 양수->음수, 음수->양수
+ *
+ * __lse_atomic_sub 설명
+ * - i의 부호를 바꾼다.
+ * - v->counter에 atomic하게 i를 add한다.
+ */
 static inline void __lse_atomic_sub(int i, atomic_t *v)
 {
 	asm volatile(
@@ -129,6 +188,13 @@ static inline void __lse_atomic_sub(int i, atomic_t *v)
 	: "r" (v));
 }
 
+/*
+ * IAMROOT, 2021.11.08:
+ * - i의 부호를 바꾼다.
+ * - v->counter에 atomic하게 i를 add한다.
+ * - v->counter의 old 값을 tmp에 write한다.
+ * - i에 tmp를 더하고 i를 return한다.
+ */
 #define ATOMIC_OP_SUB_RETURN(name, mb, cl...)				\
 static inline int __lse_atomic_sub_return##name(int i, atomic_t *v)	\
 {									\
@@ -153,6 +219,13 @@ ATOMIC_OP_SUB_RETURN(        , al, "memory")
 
 #undef ATOMIC_OP_SUB_RETURN
 
+/*
+ * IAMROOT, 2021.11.08:
+ * - i의 부호를 바꾼다.
+ * - v->counter에 atomic하게 i를 add한다.
+ * - v->counter의 old 값을 i에 write한다.
+ * - i를 return한다. (old 값)
+ */
 #define ATOMIC_FETCH_OP_SUB(name, mb, cl...)				\
 static inline int __lse_atomic_fetch_sub##name(int i, atomic_t *v)	\
 {									\

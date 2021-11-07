@@ -13,6 +13,12 @@
 #include <linux/stringify.h>
 
 #ifdef CONFIG_ARM64_LSE_ATOMICS
+
+/*
+ * IAMROOT, 2021.11.05:
+ * Put the LL/SC fallback atomics in their own subsection
+ * to improve icache performance.
+ */
 #define __LL_SC_FALLBACK(asm_ops)					\
 "	b	3f\n"							\
 "	.subsection	1\n"						\
@@ -53,6 +59,22 @@ asm_ops "\n"								\
  * - & : output register를 먼저 할당(가능하면 가장 앞번호로 할당)
  * - + : read, write
  * - Q : 해당 memory가 변경될수있음을 알림.
+ *
+ *   ------------
+ *   __ll_sc_atomic_##op 함수 코드 설명
+ *
+ * - asm volatile: 괄호() 안의 instruction들이 괄호 바깥 쪽의 코드로
+ *   move되지 않도록, as-is 실행되도록 한다.
+ * - prfm: 캐시 채우는 역할.
+ * - ldxr: load-exclusive (load-link) (global monitor, 이 캐시라인은 나만 사용)
+ * - asm_op: 예를 들어 add, sub, bic, orr, eor... 등이 있다.
+ * - stxr: store-conditional -> 실패시 %w1(=tmp)에 1, 성공시 0를 저장.
+ *
+ * - 1. prefetch.
+ *   2. read (R).
+ *   3. modify (M).
+ *   4. write (W).
+ *   5. retry if fails.
  */
 /*
  * AArch64 UP and SMP safe atomic ops.  We use load exclusive and
@@ -94,7 +116,7 @@ __ll_sc_atomic_##op(int i, atomic_t *v)					\
  *   ldxr/ldaxr %w0, %w3 이런식으로 된다.
  * - rel : release 사용시 release에 대한 단방향 barrier
  *   stxr / stlxr
- * - cl : clober 명령어가 위치한다(memory, cc, register)
+ * - cl : clobber 명령어가 위치한다(memory, cc, register)
  *
  * - ldaxr 은 a (단방향 acquire barrier) + x(atomic) 을 동시에 수행하는 명령
  * - stlxr 은 l (단방향 release barrier) + x(atomic) 을 동시에 수행하는 명령
@@ -103,8 +125,8 @@ __ll_sc_atomic_##op(int i, atomic_t *v)					\
  *  lse 명령어와 full memory barrier의 차이
  *
  *  ll_sc는 full memory barrier로 dmb명령어를 쓰면 전체 memory에 대해서
- *  동작을 하는 반면, lse는 해당 instruction + al을 통해 해당 메모리에
- *  대해서만 full memory barrier로 동작해 훨신 이점이 있다.
+ *  동작을 하는 반면, lse는 해당 instruction + acquire/release를 통해
+ *  해당 메모리에 대해서만 full memory barrier로 동작해 훨신 이점이 있다.
  *
  * ----------
  *  연산에 따른 function return 지원여부
