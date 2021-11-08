@@ -126,7 +126,7 @@
 - unflatten_dt_nodes() 진행중
 
 ### 24주차
-- 2021.11.06, Zoom 온/오프라인(11명 참석)
+- 2021.11.06, Zoom 온/오프라인(12명 참석)
 - paging_init() 완료
 - arm64_numa_init() 진행중
 
