@@ -37,7 +37,9 @@ typedef struct cpumask { DECLARE_BITMAP(bits, NR_CPUS); } cpumask_t;
 #define cpumask_pr_args(maskp)		nr_cpu_ids, cpumask_bits(maskp)
 
 /* IAMROOT, 2021.09.30:
- * NR_CPUS 는 compile time에 정해지고, nr_cpus_ids는 runtime에 정해진다.
+ * NR_CPUS 는 compile time에 정해지고, nr_cpu_ids는 runtime에 정해진다.
+ * NR_CPUS: 최대 cpu 장착 개수.
+ * nr_cpu_ids: 실제 cpu 장착 개수.
  */
 #if NR_CPUS == 1
 #define nr_cpu_ids		1U
@@ -49,6 +51,9 @@ extern unsigned int nr_cpu_ids;
  * cpumask를 stack을 쓰지 않고 alloc하여 사용한다는 의미이다. cpu가 많아지면
  * copy보다는 pointer로 넘겨주는게 효율이 좋기때문이다.
  * (cpumask_var_t 참고)
+ *
+ * 따라서 별도의 다이나믹 할당 관리가 필요하다.
+ * 이 옵션은 cpu가 long 타입 비트수(32 or 64)를 초과하는 경우 사용해야 효과적이다.
  */
 #ifdef CONFIG_CPUMASK_OFFSTACK
 /* Assuming NR_CPUS is huge, a runtime limit is more efficient.  Also,
@@ -98,6 +103,13 @@ extern unsigned int nr_cpu_ids;
  *    only one CPU.
  */
 
+/*
+ * IAMROOT, 2021.11.09:
+ * - possible: NR_CPUS 내에서 최대 장착 가능한 cpu
+ * - present: CPU를 인식하여 동작한 상태. (hot-plug로 장착/탈착 가능)
+ * - online: 테스크가 동작 가능한 상태
+ * - active: 테스크 스케줄링이 가능한 상태
+ */
 extern struct cpumask __cpu_possible_mask;
 extern struct cpumask __cpu_online_mask;
 extern struct cpumask __cpu_present_mask;
@@ -130,6 +142,7 @@ static inline unsigned int num_online_cpus(void)
 #define cpu_present(cpu)	cpumask_test_cpu((cpu), cpu_present_mask)
 #define cpu_active(cpu)		cpumask_test_cpu((cpu), cpu_active_mask)
 #else
+/* IAMROOT, 2021.11.12: NR_CPU == 1 */
 #define num_online_cpus()	1U
 #define num_possible_cpus()	1U
 #define num_present_cpus()	1U
@@ -149,6 +162,10 @@ static inline void cpu_max_bits_warn(unsigned int cpu, unsigned int bits)
 #endif /* CONFIG_DEBUG_PER_CPU_MAPS */
 }
 
+/*
+ * IAMROOT, 2021.11.09:
+ * nr_cpumask_bits보다 cpu번호가 크거나 같은지 check한다.
+ */
 /* verify cpu argument to cpumask_* operators */
 static inline unsigned int cpumask_check(unsigned int cpu)
 {
@@ -219,6 +236,7 @@ static inline int cpumask_any_and_distribute(const struct cpumask *src1p,
 #define for_each_cpu_and(cpu, mask1, mask2)	\
 	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask1, (void)mask2)
 #else
+/* IAMROOT, 2021.11.12: NR_CPUS > 1 */
 /**
  * cpumask_first - get the first cpu in a cpumask
  * @srcp: the cpumask pointer
@@ -821,8 +839,16 @@ static inline bool cpumask_available(cpumask_var_t mask)
 /* It's common to want to use cpu_all_mask in struct member initializers,
  * so it has to refer to an address rather than a pointer. */
 extern const DECLARE_BITMAP(cpu_all_bits, NR_CPUS);
+/*
+ * IAMROOT, 2021.11.13:
+ * cpu_all_bits(=CPU_BITS_ALL)를 cpumask_t로 감싼 것.
+ */
 #define cpu_all_mask to_cpumask(cpu_all_bits)
 
+/*
+ * IAMROOT, 2021.11.13:
+ * cpu_bit_bitmap[0](=0)를 cpumask_t로 감싼 것.
+ */
 /* First bits of cpu_bit_bitmap are in fact unset. */
 #define cpu_none_mask to_cpumask(cpu_bit_bitmap[0])
 
@@ -835,11 +861,23 @@ void init_cpu_present(const struct cpumask *src);
 void init_cpu_possible(const struct cpumask *src);
 void init_cpu_online(const struct cpumask *src);
 
+/*
+ * IAMROOT, 2021.11.13:
+ * __cpu_possible_mask의 bitmap을 0으로 clear.
+ */
 static inline void reset_cpu_possible_mask(void)
 {
 	bitmap_zero(cpumask_bits(&__cpu_possible_mask), NR_CPUS);
 }
 
+/*
+ * IAMROOT, 2021.11.13:
+ * - possible이 true이면
+ *   __cpu_possible_mask의 bitmap에서 해당 cpu를 set.
+ *
+ * - possible이 false이면
+ *   __cpu_possible_mask의 bitmap에서 해당 cpu를 claer.
+ */
 static inline void
 set_cpu_possible(unsigned int cpu, bool possible)
 {
@@ -849,6 +887,14 @@ set_cpu_possible(unsigned int cpu, bool possible)
 		cpumask_clear_cpu(cpu, &__cpu_possible_mask);
 }
 
+/*
+ * IAMROOT, 2021.11.13:
+ * - present가 true이면
+ *   __cpu_present_mask의 bitmap에서 해당 cpu를 set.
+ *
+ * - present가 false이면
+ *   __cpu_present_mask의 bitmap에서 해당 cpu를 claer.
+ */
 static inline void
 set_cpu_present(unsigned int cpu, bool present)
 {
@@ -860,6 +906,14 @@ set_cpu_present(unsigned int cpu, bool present)
 
 void set_cpu_online(unsigned int cpu, bool online);
 
+/*
+ * IAMROOT, 2021.11.13:
+ * - active가 true이면
+ *   __cpu_active_mask의 bitmap에서 해당 cpu를 set.
+ *
+ * - active가 false이면
+ *   __cpu_active_mask의 bitmap에서 해당 cpu를 claer.
+ */
 static inline void
 set_cpu_active(unsigned int cpu, bool active)
 {
@@ -870,6 +924,16 @@ set_cpu_active(unsigned int cpu, bool active)
 }
 
 
+/*
+ * IAMROOT, 2021.11.13:
+ * - ternary operator를 잘 보면 항상 true여서
+ *   false인 case의 (void *)sizeof(__check_is_bitmap(bitmap))
+ *   이 왜 필요지 의문이 들 수 있다. 그 이유는, compile-time에
+ *   bitmap이 정말 unsigned long * 타입이 맞는지 확인하기
+ *   위해서이다. 해당 타입이 아니라면 compilation warning이
+ *   발생할 것이다.
+ *   https://zhuanlan.zhihu.com/p/163850501
+ */
 /**
  * to_cpumask - convert an NR_CPUS bitmap to a struct cpumask *
  * @bitmap: the bitmap
@@ -884,11 +948,26 @@ set_cpu_active(unsigned int cpu, bool active)
 	((struct cpumask *)(1 ? (bitmap)				\
 			    : (void *)sizeof(__check_is_bitmap(bitmap))))
 
+/*
+ * IAMROOT, 2021.11.13:
+ * - compilep-time에 bitmap이 unsigned long * 타입인지
+ *   확인하기 위한 용도.
+ */
 static inline int __check_is_bitmap(const unsigned long *bitmap)
 {
 	return 1;
 }
 
+/*
+ * IAMROOT, 2021.11.13:
+ * - Second dimension의 크기인 BITS_TO_LONGS(NR_CPUS)가
+ *   cpumask_t의 bitmap 크기와 같다는 점에 주목.
+ *
+ * - cpu_bit_bitmap:
+ *   [0][0] = 0, [1][0] = 1, [2][0] = 2,
+ *   [3][0] = 4, [4][0] = 8, [5][0] = 16,
+ *   ...
+ */
 /*
  * Special-case data structure for "single bit set only" constant CPU masks.
  *
@@ -899,6 +978,31 @@ static inline int __check_is_bitmap(const unsigned long *bitmap)
 extern const unsigned long
 	cpu_bit_bitmap[BITS_PER_LONG+1][BITS_TO_LONGS(NR_CPUS)];
 
+/*
+ * IAMROOT, 2021.11.13:
+ * - ex) NR_CPUS가 128이라고 가정해 보자.
+ *
+ *   cpu_bit_bitmap:
+ *     [0][0]  = (0),     [0][1]  = 0,
+ *     [1][0]  = (1<<0),  [1][1]  = 0,
+ *     [2][0]  = (2<<0),  [2][1]  = 0,
+ *     [3][0]  = (4<<0),  [3][1]  = 0,
+ *     ...
+ *     [64][0] = (1<<63), [64][1] = 0,
+ *
+ *   get_cpu_mask(0)   = {(1<<0), 0}
+ *   get_cpu_mask(1)   = {(1<<1), 0}
+ *   ...
+ *   get_cpu_mask(63)  = {(1<<63), 0}
+ *
+ *   get_cpu_mask(64)  = {0, (1<<0)}
+ *   get_cpu_mask(65)  = {0, (1<<1)}
+ *   ...
+ *   get_cpu_mask(127) = {0, (1<<63)}
+ *
+ *   아래의 링크의 그림을 참조하면 이해하는데 도움이 된다.
+ *   https://zhuanlan.zhihu.com/p/163850501
+ */
 static inline const struct cpumask *get_cpu_mask(unsigned int cpu)
 {
 	const unsigned long *p = cpu_bit_bitmap[1 + cpu % BITS_PER_LONG];
@@ -908,6 +1012,14 @@ static inline const struct cpumask *get_cpu_mask(unsigned int cpu)
 
 #define cpu_is_offline(cpu)	unlikely(!cpu_online(cpu))
 
+/*
+ * IAMROOT, 2021.11.09:
+ * - CPU_BITS_ALL
+ *   ex) NR_CPUS = 64 + 64 + 32
+ *       CPU_BITS_ALL = 0xffff_ffff_ffff_ffff
+ *                      0xffff_ffff_ffff_ffff
+ *                      0x0000_0000_ffff_ffff
+ */
 #if NR_CPUS <= BITS_PER_LONG
 #define CPU_BITS_ALL						\
 {								\
@@ -940,6 +1052,11 @@ cpumap_print_to_pagebuf(bool list, char *buf, const struct cpumask *mask)
 				      nr_cpu_ids);
 }
 
+/*
+ * IAMROOT, 2021.11.13:
+ * CPU_BITS_ALL과 비슷하다.
+ * 단, bitmap을 cpumask_t안에 감쌌다.
+ */
 #if NR_CPUS <= BITS_PER_LONG
 #define CPU_MASK_ALL							\
 (cpumask_t) { {								\
