@@ -228,19 +228,40 @@ extern int bitmap_print_to_pagebuf(bool list, char *buf,
 				   const unsigned long *maskp, int nmaskbits);
 
 /* IAMROOT, 2021.09.30:
- * start bit보다 낮은 bit들은 전부 clear하기 위한것.
- * ex)
- * BITMAP_FIRST_WORD_MASK 0 ffffffffffffffff
- * BITMAP_FIRST_WORD_MASK 1 fffffffffffffffe
- * BITMAP_FIRST_WORD_MASK 2 fffffffffffffffc
- * ...
- * BITMAP_FIRST_WORD_MASK 63 8000000000000000
- * BITMAP_FIRST_WORD_MASK 64 ffffffffffffffff
- * BITMAP_FIRST_WORD_MASK 65 fffffffffffffffe
+ *
+ * - BITMAP_FIRST_WORD_MASK(start)
+ *     start bit보다 낮은 bit들은 전부 clear하기 위한것.
+ *     ex)
+ *     BITMAP_FIRST_WORD_MASK 0  0xffff-ffff-ffff-ffff
+ *     BITMAP_FIRST_WORD_MASK 1  0xffff-ffff-ffff-fffe
+ *     BITMAP_FIRST_WORD_MASK 2  0xffff-ffff-ffff-fffc
+ *     ...
+ *     BITMAP_FIRST_WORD_MASK 63 0x8000-0000-0000-0000
+ *     BITMAP_FIRST_WORD_MASK 64 0xffff-ffff-ffff-ffff
+ *     BITMAP_FIRST_WORD_MASK 65 0xffff-ffff-ffff-fffe
+ *
+ * - BITMAP_LAST_WORD_MASK(start)
+ *     start bit보다 높은 bit들은 전부 clear하기 위한것.
+ *     ex)
+ *     BITMAP_LAST_WORD_MASK 0  0xffff-ffff-ffff-ffff
+ *     BITMAP_LAST_WORD_MASK 1  0x0000-0000-0000-0001
+ *     BITMAP_LAST_WORD_MASK 2  0x0000-0000-0000-0003
+ *     ...
+ *     BITMAP_LAST_WORD_MASK 63 0x7fff-ffff-ffff-ffff
+ *     BITMAP_LAST_WORD_MASK 64 0xffff-ffff-ffff-ffff
+ *     BITMAP_LAST_WORD_MASK 65 0x0000-0000-0000-0001
  */
 #define BITMAP_FIRST_WORD_MASK(start) (~0UL << ((start) & (BITS_PER_LONG - 1)))
 #define BITMAP_LAST_WORD_MASK(nbits) (~0UL >> (-(nbits) & (BITS_PER_LONG - 1)))
 
+/*
+ * IAMROOT, 2021.11.12:
+ * - nbits가 compile-time 상수이고 1 ~ BITS_PER_LONG 사이의 수 (small) 이면 1, 아니면 0.
+ *   쉽게 바꿔 말하면, bitmap의 length가 1이다.
+ *
+ * - __builtin_constant_p: 컴파일 타임에 상수로 정해질 수 있으면 1, 아니면 0.
+ *   https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+ */
 /*
  * The static inlines below do not handle constant nbits==0 correctly,
  * so make such users (should any ever turn up) call the out-of-line
@@ -249,18 +270,39 @@ extern int bitmap_print_to_pagebuf(bool list, char *buf,
 #define small_const_nbits(nbits) \
 	(__builtin_constant_p(nbits) && (nbits) <= BITS_PER_LONG && (nbits) > 0)
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = 0UL (BITS_TO_LONGS(nbits) 만큼만)
+ *
+ * - dst[]의 length를 구한다.
+ *   dst의 모든 원소를 0으로 초기화.
+ */
 static inline void bitmap_zero(unsigned long *dst, unsigned int nbits)
 {
 	unsigned int len = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
 	memset(dst, 0, len);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = ~0UL (BITS_TO_LONGS(nbits) 만큼만)
+ *
+ * - dst[]의 length를 구한다.
+ *   dst의 모든 원소를 0xffff_ffff_...으로 초기화.
+ */
 static inline void bitmap_fill(unsigned long *dst, unsigned int nbits)
 {
 	unsigned int len = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
 	memset(dst, 0xff, len);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = *src (BITS_TO_LONGS(nbits) 만큼만)
+ *
+ * - dst[]의 length를 구한다.
+ *   dst의 모든 원소를 src로 복사.
+ */
 static inline void bitmap_copy(unsigned long *dst, const unsigned long *src,
 			unsigned int nbits)
 {
@@ -268,6 +310,15 @@ static inline void bitmap_copy(unsigned long *dst, const unsigned long *src,
 	memcpy(dst, src, len);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = *src (nbits 만큼만)
+ *
+ * - dst의 모든 원소를 src로 복사.
+ *   nbits가 BITS_PER_LONG로 나누어 떨어지지 않는다면
+ *   정확히 nbits만큼을 copy하기 위해서 dst의 마지막 원소에서
+ *   nbits를 초과하는 부분은 0으로 초기화 한다.
+ */
 /*
  * Copy bitmap and clear tail bits in last word.
  */
@@ -297,6 +348,17 @@ extern void bitmap_to_arr32(u32 *buf, const unsigned long *bitmap,
 			(const unsigned long *) (bitmap), (nbits))
 #endif
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = *src1 & *src2 (nbits 만큼만)
+ *
+ * - nbits가 small이면 (즉, length=1) src1과 src2의 첫번째 원소끼리
+ *   and 연산을 한다.
+ *   nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값을 dst에 write한다.
+ *
+ * - nbits가 small이 아니면 __bitmap_and로 forward.
+ */
 static inline int bitmap_and(unsigned long *dst, const unsigned long *src1,
 			const unsigned long *src2, unsigned int nbits)
 {
@@ -305,6 +367,16 @@ static inline int bitmap_and(unsigned long *dst, const unsigned long *src1,
 	return __bitmap_and(dst, src1, src2, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = *src1 | *src2 (nbits 만큼만)
+ *
+ * - nbits가 small이면 (즉, length=1) src1과 src2의 첫번째 원소끼리
+ *   or 연산을 한다.
+ *   결과 값을 dst에 write한다.
+ *
+ * - nbits가 small이 아니면 __bitmap_or로 forward.
+ */
 static inline void bitmap_or(unsigned long *dst, const unsigned long *src1,
 			const unsigned long *src2, unsigned int nbits)
 {
@@ -314,6 +386,16 @@ static inline void bitmap_or(unsigned long *dst, const unsigned long *src1,
 		__bitmap_or(dst, src1, src2, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = *src1 ^ *src2 (nbits 만큼만)
+ *
+ * - nbits가 small이면 (즉, length=1) src1과 src2의 첫번째 원소끼리
+ *   xor 연산을 한다.
+ *   결과 값을 dst에 write한다.
+ *
+ * - nbits가 small이 아니면 __bitmap_xor로 forward.
+ */
 static inline void bitmap_xor(unsigned long *dst, const unsigned long *src1,
 			const unsigned long *src2, unsigned int nbits)
 {
@@ -323,6 +405,16 @@ static inline void bitmap_xor(unsigned long *dst, const unsigned long *src1,
 		__bitmap_xor(dst, src1, src2, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = *src1 & ~(*src2) (nbits 만큼만)
+ *
+ * - nbits가 small이면 (즉, length=1) src1과 src2의 첫번째 원소끼리
+ *   andnot 연산을 하고 (src1 & ~src2) nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값을 dst에 write한다.
+ *
+ * - nbits가 small이 아니면 __bitmap_andnot로 forward.
+ */
 static inline int bitmap_andnot(unsigned long *dst, const unsigned long *src1,
 			const unsigned long *src2, unsigned int nbits)
 {
@@ -331,6 +423,15 @@ static inline int bitmap_andnot(unsigned long *dst, const unsigned long *src1,
 	return __bitmap_andnot(dst, src1, src2, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * *dst = ~(*src) (nbits 만큼만)
+ *
+ * - nbits가 small이면 (즉, length=1) src의 첫번째 원소의 bit를 flip한다.
+ *   결과 값을 dst에 write한다.
+ *
+ * - nbits가 small이 아니면 __bitmap_complement로 forward.
+ */
 static inline void bitmap_complement(unsigned long *dst, const unsigned long *src,
 			unsigned int nbits)
 {
@@ -340,6 +441,42 @@ static inline void bitmap_complement(unsigned long *dst, const unsigned long *sr
 		__bitmap_complement(dst, src, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ *
+ * - 전제 조건으로, 커널에서 0xffffffff00000000와 같이 msb(왼쪽)부터
+ *   bitmap의 bit를 채우지 않는다. lsb(오른쪽)부터 bit가 차게 된다.
+ *   (0x00000000ffffffff)
+ *
+ * - Endian에 따라 BITMAP_MEM_ALIGNMENT의 값이 달라지는 이유는
+ *   아래의 예제를 통해 생각해 볼 수 있다.
+ *
+ * - unsigned long s1[] = {0xffffffffffffffff, 0xffffffffffffffff};
+ *   unsigned long s2[] = {0xffffffffffffffff, 0x00000000ffffffff};
+ *   printf("%x\n", memcmp(s1, s2, 9));
+ *
+ * - little-endian cpu에서는 s1과 s2의 9바이트 값을 비교하였을 때
+ *   값이 같다(=0)고 나온다. unsigned long 안의 byte 순서가 역전되기
+ *   때문이다.
+ *
+ * - big-endian cpu에서는 s1과 s2의 9바이트 값을 비교하였을 때
+ *   값이 같지 않다(!= 0)고 나온다. unsigned long 안의 byte 순서가
+ *   역전되지 않기 때문이다.
+ *
+ * - 따라서, big-endian cpu에서는 bitmap 2개를 서로 비교할 때
+ *   nbits가 unsigned long의 bit수(32 or 64)로 나누어 떨어지지 않으면
+ *   mem_xxx 함수를 쓰지 않는다. 근본적인 이유는 bitmap에서 bit가
+ *   msb(오른쪽)에서부터 차기 때문이다.
+ *
+ * - 따라서 big-endian cpu인 경우에는 BITMAP_MEM_ALIGNMENT 값이
+ *   아키텍처에 따라 32 or 64가 된다. 이를 풀어서 말하면, nbits가
+ *   unsigned long의 bit수로 나누어 떨어지는 경우에만 mem_xxx함수를
+ *   사용하겠다는 의미이다. (IS_ALIGNED(nbits, BITMAP_MEM_ALIGNMENT))
+ *
+ * - little-endian cpu인 경우에 BITMAP_MEM_ALIGNMENT 값이 8인 이유는
+ *   nbits가 8로 나누어 떨어지기만 하면 위의 사례에서 보았던 것 처럼
+ *   mem_xxx함수를 사용할 수 있기 때문이다.
+ */
 #ifdef __LITTLE_ENDIAN
 #define BITMAP_MEM_ALIGNMENT 8
 #else
@@ -347,6 +484,22 @@ static inline void bitmap_complement(unsigned long *dst, const unsigned long *sr
 #endif
 #define BITMAP_MEM_MASK (BITMAP_MEM_ALIGNMENT - 1)
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src1과 src2가 같은지 알아온다. (nbits 만큼만 비교)
+ *
+ * - nbits가 small이면 (즉, length=1) src1, src2의 첫번째 원소끼리
+ *   eor 연산을 한다.
+ *   nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값이 0이라면 (equal) 1을 return, non-zero라면 0을 return한다.
+ *
+ * - nbits가 small이 아니라면 memcmp를 사용하여 둘을 비교하는데
+ *   단, little_endian인 경우에는 nbits가 8로 나누어 떨어진다면,
+ *   big_endian인 경우에는 unsigned long의 bit수(32 or 64)로
+ *   나누어 떨어진다면 memcmp함수를 사용하여 src1, src2를 비교한다.
+ *
+ * - 그 외의 경우에는 __bitmap_equal에 forward한다.
+ */
 static inline int bitmap_equal(const unsigned long *src1,
 			const unsigned long *src2, unsigned int nbits)
 {
@@ -358,6 +511,18 @@ static inline int bitmap_equal(const unsigned long *src1,
 	return __bitmap_equal(src1, src2, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src1과 src2를 or한 결과가 src3랑 같은지 알아온다.
+ * (nbits 만큼만 비교)
+ *
+ * - nbits가 small이 아니라면 __bitmap_or_equal에 forward한다.
+ *
+ * - nbits가 small이라면 (length=1) src1과 src2를 or 연산하고
+ *   결과 값을 src3와 eor 연산을 한다.
+ *   nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값이 0이라면 (equal) 1을 return, non-zero라면 0을 return한다.
+ */
 /**
  * bitmap_or_equal - Check whether the or of two bitmaps is equal to a third
  * @src1:	Pointer to bitmap 1
@@ -378,6 +543,17 @@ static inline bool bitmap_or_equal(const unsigned long *src1,
 	return !(((*src1 | *src2) ^ *src3) & BITMAP_LAST_WORD_MASK(nbits));
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src1과 src2에 겹치는 부분(intersection)이 있는지 알아온다.
+ * (nbits 만큼만 비교)
+ *
+ * - nbits가 small이라면 (length=1) src1과 src2를 and 연산한다.
+ *   nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값이 non-zero라면 1을 return, 0라면 0을 return한다.
+ *
+ * - nbits가 small이 아니라면 __bitmap_intersects에 forward한다.
+ */
 static inline int bitmap_intersects(const unsigned long *src1,
 			const unsigned long *src2, unsigned int nbits)
 {
@@ -387,6 +563,18 @@ static inline int bitmap_intersects(const unsigned long *src1,
 		return __bitmap_intersects(src1, src2, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src1이 src2의 subset인지 알아온다. (nbits만큼만 비교)
+ *
+ * - nbits가 small이라면 (length=1) src1과 ~src2를 and 연산한다.
+ *   (src1 - src2)
+ *   nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값이 0이라면 1을 return (src1은 src2의 subset),
+ *   non-zero라면 0을 return한다.
+ *
+ * - nbits가 small이 아니라면 __bitmap_subset에 forward한다.
+ */
 static inline int bitmap_subset(const unsigned long *src1,
 			const unsigned long *src2, unsigned int nbits)
 {
@@ -396,6 +584,19 @@ static inline int bitmap_subset(const unsigned long *src1,
 		return __bitmap_subset(src1, src2, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src에서 nbits 만큼의 비트가 전부 0인지 알아온다.
+ *
+ * - nbits가 small이라면 (length=1)
+ *   src에서 nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값이 0이라면 1을 return (src는 empty),
+ *   non-zero라면 0을 return한다.
+ *
+ * - nbits가 small이 아니라면 find_first_bit로
+ *   nbits안에 1이 있는지 검사한다.
+ *   src가 empty라면 find_first_bit는 nbits를 return한다.
+ */
 static inline int bitmap_empty(const unsigned long *src, unsigned nbits)
 {
 	if (small_const_nbits(nbits))
@@ -404,6 +605,19 @@ static inline int bitmap_empty(const unsigned long *src, unsigned nbits)
 	return find_first_bit(src, nbits) == nbits;
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src에서 nbits 만큼의 비트가 전부 1인지 알아온다.
+ *
+ * - nbits가 small이라면 (length=1)
+ *   src의 bit를 flip한 후 nbits를 초과하는 부분은 0으로 초기화한다.
+ *   결과 값이 0이라면 1을 return (src는 full),
+ *   non-zero라면 0을 return한다.
+ *
+ * - nbits가 small이 아니라면 find_first_zero_bit로
+ *   nbits안에 0이 있는지 검사한다.
+ *   src가 full이라면 find_first_zero_bit는 nbits를 return한다.
+ */
 static inline int bitmap_full(const unsigned long *src, unsigned int nbits)
 {
 	if (small_const_nbits(nbits))
@@ -412,6 +626,16 @@ static inline int bitmap_full(const unsigned long *src, unsigned int nbits)
 	return find_first_zero_bit(src, nbits) == nbits;
 }
 
+/*
+ * IAMROOT, 2021.11.09:
+ * src에서 nbits 만큼의 비트에서 1로 설정된 비트 수를 알아온다.
+ *
+ * - nbits가 small이라면 (length=1)
+ *   src에서 nbits를 초과하는 부분은 0으로 초기화한 후
+ *   hweight_long에 forward한다.
+ *
+ * - nbits가 small이 아니라면 __bitmap_weight에 forward한다.
+ */
 static __always_inline int bitmap_weight(const unsigned long *src, unsigned int nbits)
 {
 	if (small_const_nbits(nbits))
@@ -419,6 +643,17 @@ static __always_inline int bitmap_weight(const unsigned long *src, unsigned int 
 	return __bitmap_weight(src, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * map에서 start부터 nbits만큼의 bit를 set한다.
+ *
+ * - nbits가 1이면 __set_bit로 해당 start bit만 set한다.
+ *
+ * - start와 nbits 모두 BITMAP_MEM_ALIGNMENT에 align되있으면
+ *   memset으로 해당 영역을 set한다.
+ *
+ * - 그 외의 경우는 __bitmap_set에 forward한다.
+ */
 static __always_inline void bitmap_set(unsigned long *map, unsigned int start,
 		unsigned int nbits)
 {
@@ -433,6 +668,17 @@ static __always_inline void bitmap_set(unsigned long *map, unsigned int start,
 		__bitmap_set(map, start, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * map에서 start부터 nbits만큼의 bit를 clear한다.
+ *
+ * - nbits가 1이면 __clear_bit로 해당 start bit만 clear한다.
+ *
+ * - start와 nbits 모두 BITMAP_MEM_ALIGNMENT에 align되있으면
+ *   memset으로 해당 영역을 clear한다.
+ *
+ * - 그 외의 경우는 __bitmap_clear에 forward한다.
+ */
 static __always_inline void bitmap_clear(unsigned long *map, unsigned int start,
 		unsigned int nbits)
 {
@@ -447,6 +693,17 @@ static __always_inline void bitmap_clear(unsigned long *map, unsigned int start,
 		__bitmap_clear(map, start, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src에서 nbits만큼을 right shift한다.
+ *
+ * - nbits가 small이라면 (length=1)
+ *   src에서 nbits를 초과하는 부분은 0으로 초기화한 후
+ *   오른쪽으로 shift만큼 shift시킨 후
+ *   dst에 write한다.
+ *
+ * - 그 외의 경우는 __bitmap_shift_right에 forward한다.
+ */
 static inline void bitmap_shift_right(unsigned long *dst, const unsigned long *src,
 				unsigned int shift, unsigned int nbits)
 {
@@ -456,6 +713,17 @@ static inline void bitmap_shift_right(unsigned long *dst, const unsigned long *s
 		__bitmap_shift_right(dst, src, shift, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * src에서 nbits만큼을 left shift한다.
+ *
+ * - nbits가 small이라면 (length=1)
+ *   왼쪽으로 shift만큼 shift시킨 후
+ *   src에서 nbits를 초과하는 부분은 0으로 초기화한 후
+ *   dst에 write한다. 
+ *
+ * - 그 외의 경우는 __bitmap_shift_left에 forward한다.
+ */
 static inline void bitmap_shift_left(unsigned long *dst, const unsigned long *src,
 				unsigned int shift, unsigned int nbits)
 {
@@ -465,6 +733,18 @@ static inline void bitmap_shift_left(unsigned long *dst, const unsigned long *sr
 		__bitmap_shift_left(dst, src, shift, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * old에서 mask부분을 new로 replace한다.
+ * (length=BITS_TO_LONGS(nbits))
+ *
+ * - nbits가 small이라면 (length=1)
+ *   old에서 mask가 아닌 부분과
+ *   new에서 mask인 부분을 or 연산한 값을
+ *   dst에 write한다.
+ *
+ * - 그 외의 경우는 __bitmap_replace에 forward한다.
+ */
 static inline void bitmap_replace(unsigned long *dst,
 				  const unsigned long *old,
 				  const unsigned long *new,
@@ -477,6 +757,19 @@ static inline void bitmap_replace(unsigned long *dst,
 		__bitmap_replace(dst, old, new, mask, nbits);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * end부터 0이 처음 나오는 부분을 rs,
+ * rs 이후로 1이 처음 나오는 부분을 re에 write한다.
+ *
+ * - 용어 줄임말
+ *   rs: region start
+ *   re: region end
+ *   (추측)
+ *
+ * - 인자
+ *   rs: searching을 시작할 start index.
+ */
 static inline void bitmap_next_clear_region(unsigned long *bitmap,
 					    unsigned int *rs, unsigned int *re,
 					    unsigned int end)
@@ -485,6 +778,14 @@ static inline void bitmap_next_clear_region(unsigned long *bitmap,
 	*re = find_next_bit(bitmap, end, *rs + 1);
 }
 
+/*
+ * IAMROOT, 2021.11.12:
+ * end부터 1이 처음 나오는 부분을 rs,
+ * rs 이후로 0이 처음 나오는 부분을 re에 write한다.
+
+ * - 인자
+ *   rs: searching을 시작할 start index.
+ */
 static inline void bitmap_next_set_region(unsigned long *bitmap,
 					  unsigned int *rs, unsigned int *re,
 					  unsigned int end)
